@@ -121,7 +121,28 @@ export interface PatientProfile {
   phone: string | null;
   bloodGroup: string | null;
   allergies: string[];
+  isCritical: boolean;
+  criticalNote: string | null;
   createdAt: Date;
+}
+
+export interface ConsultationQuestion {
+  id: string;
+  consultationId: string;
+  patientId: string;
+  question: string;
+  answer: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PatientHistoryEntry {
+  consultationId: string;
+  date: string; // ISO date string
+  assessment: string;
+  plan: string;
+  drugs: string[];
+  diagnoses: string[];
 }
 
 export interface Consultation {
@@ -160,6 +181,7 @@ export interface PatientContext {
   age: number;
   gender: PatientGender;
   chiefComplaint?: string;
+  priorHistory?: PatientHistoryEntry[];
 }
 
 export interface ExtractedClinicalData {

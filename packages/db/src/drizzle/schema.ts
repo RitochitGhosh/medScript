@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   timestamp,
   pgEnum,
   jsonb,
@@ -62,6 +63,9 @@ export const patients = pgTable("patients", {
   phone: text("phone"),
   bloodGroup: text("blood_group"),
   allergies: text("allergies").array().default([]).notNull(),
+  /** Doctor can flag a patient as requiring attention/critical follow-up */
+  isCritical: boolean("is_critical").default(false).notNull(),
+  criticalNote: text("critical_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -102,6 +106,20 @@ export const consultations = pgTable("consultations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const consultationQuestions = pgTable("consultation_questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  consultationId: uuid("consultation_id")
+    .references(() => consultations.id, { onDelete: "cascade" })
+    .notNull(),
+  patientId: uuid("patient_id")
+    .references(() => patients.id, { onDelete: "cascade" })
+    .notNull(),
+  question: text("question").notNull(),
+  answer: text("answer"), // null until AI answers
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ---------- Inferred row types ----------
 
 export type UserRow = typeof users.$inferSelect;
@@ -113,3 +131,5 @@ export type NewUser = typeof users.$inferInsert;
 export type NewDoctor = typeof doctors.$inferInsert;
 export type NewPatient = typeof patients.$inferInsert;
 export type NewConsultation = typeof consultations.$inferInsert;
+export type ConsultationQuestionRow = typeof consultationQuestions.$inferSelect;
+export type NewConsultationQuestion = typeof consultationQuestions.$inferInsert;

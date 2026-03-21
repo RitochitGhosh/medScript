@@ -1,4 +1,4 @@
-import { eq, ilike } from "drizzle-orm";
+import { eq, ilike, sql } from "drizzle-orm";
 import { db } from "./drizzle/client";
 import { patients } from "./drizzle/schema";
 import { getUserByClerkId } from "./pg-users";
@@ -14,6 +14,8 @@ function toPatientProfile(row: typeof patients.$inferSelect): PatientProfile {
     phone: row.phone,
     bloodGroup: row.bloodGroup,
     allergies: row.allergies ?? [],
+    isCritical: row.isCritical,
+    criticalNote: row.criticalNote,
     createdAt: row.createdAt,
   };
 }
@@ -37,6 +39,8 @@ export async function createPatient(data: {
       bloodGroup: data.bloodGroup ?? null,
       allergies: data.allergies ?? [],
       userId: data.userId ?? null,
+      isCritical: false,
+      criticalNote: null,
     })
     .returning();
   return toPatientProfile(row!);
@@ -72,4 +76,77 @@ export async function searchPatients(query: string, limit = 10): Promise<Patient
     limit,
   });
   return rows.map(toPatientProfile);
+}
+
+/** All distinct patients a doctor has ever treated, scoped to that doctor's consultations */
+export async function getPatientsByDoctor(
+  doctorId: string,
+  searchQuery?: string
+): Promise<(PatientProfile & { lastSeenAt: Date; totalVisits: number })[]> {
+  // Build raw SQL for a join with aggregation
+  const searchFilter = searchQuery
+    ? sql`AND p.name ILIKE ${"%" + searchQuery + "%"}`
+    : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      p.id,
+      p.user_id,
+      p.name,
+      p.age,
+      p.gender,
+      p.phone,
+      p.blood_group,
+      p.allergies,
+      p.is_critical,
+      p.critical_note,
+      p.created_at,
+      p.updated_at,
+      MAX(c.created_at) AS last_seen_at,
+      COUNT(c.id)::int AS total_visits
+    FROM patients p
+    INNER JOIN consultations c ON c.patient_id = p.id
+    WHERE c.doctor_id = ${doctorId}
+    ${searchFilter}
+    GROUP BY p.id
+    ORDER BY MAX(c.created_at) DESC
+  `);
+
+  const rows = result.rows as unknown[];
+
+  return rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id: row["id"] as string,
+      userId: row["user_id"] as string | null,
+      name: row["name"] as string,
+      age: row["age"] as number,
+      gender: row["gender"] as PatientGender,
+      phone: row["phone"] as string | null,
+      bloodGroup: row["blood_group"] as string | null,
+      allergies: (row["allergies"] as string[]) ?? [],
+      isCritical: (row["is_critical"] as boolean) ?? false,
+      criticalNote: row["critical_note"] as string | null,
+      createdAt: new Date(row["created_at"] as string),
+      lastSeenAt: new Date(row["last_seen_at"] as string),
+      totalVisits: (row["total_visits"] as number) ?? 0,
+    };
+  });
+}
+
+/** Toggle the critical/attention-required flag on a patient */
+export async function setPatientCritical(
+  patientId: string,
+  isCritical: boolean,
+  criticalNote?: string
+): Promise<boolean> {
+  const result = await db
+    .update(patients)
+    .set({
+      isCritical,
+      criticalNote: isCritical ? (criticalNote ?? null) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(patients.id, patientId));
+  return (result.rowCount ?? 0) > 0;
 }

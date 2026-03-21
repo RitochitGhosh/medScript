@@ -8,6 +8,7 @@ export * from "./pg-users";
 export * from "./pg-doctors";
 export * from "./pg-patients";
 export * from "./pg-consultations";
+export * from "./pg-questions";
 
 // Shared Zod schemas (used in API route validation)
 export * from "./schemas";

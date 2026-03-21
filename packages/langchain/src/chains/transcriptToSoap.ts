@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
-import type { PatientContext, SoapNote, HitlFlag, ExtractedClinicalData } from "@workspace/types";
+import type { PatientContext, SoapNote, HitlFlag, ExtractedClinicalData, PatientHistoryEntry } from "@workspace/types";
 import { env } from "../env";
 
 const ExtractedDataSchema = z.object({
@@ -71,11 +71,20 @@ For each section, assess your confidence (0-100):
 - 50-75: Some uncertainty, limited information
 - <50: Significant gaps, needs clarification
 
+When prior consultation history is available, use it to:
+- Identify chronic or recurring conditions
+- Note medication history and previous treatment responses
+- Flag if symptoms are worsening compared to prior visits
+- Avoid repeating treatments that were previously ineffective
+
 Keep notes concise but complete. Use standard medical abbreviations where appropriate.`,
   ],
   [
     "human",
     `Patient: {patientName}, {patientAge}Y, {patientGender}
+
+Prior Medical History:
+{patientHistory}
 
 Extracted Clinical Data:
 {extractedData}
@@ -148,6 +157,22 @@ export interface TranscriptToSoapResult {
   };
 }
 
+function formatPatientHistory(history: PatientHistoryEntry[]): string {
+  if (!history || history.length === 0) {
+    return "No prior consultation history on record.";
+  }
+  return history
+    .map(
+      (h, i) =>
+        `Visit ${i + 1} (${h.date}):\n` +
+        `  Assessment: ${h.assessment}\n` +
+        `  Plan: ${h.plan}\n` +
+        `  Medications: ${h.drugs.length > 0 ? h.drugs.join(", ") : "None"}\n` +
+        `  Diagnoses: ${h.diagnoses.length > 0 ? h.diagnoses.join(", ") : "Not recorded"}`
+    )
+    .join("\n\n");
+}
+
 export async function transcriptToSoap(
   rawTranscript: string,
   patientContext: PatientContext
@@ -161,7 +186,8 @@ export async function transcriptToSoap(
     patientGender: patientContext.gender,
   });
 
-  // Step 2: Generate SOAP note with confidence
+  // Step 2: Generate SOAP note with confidence (inject prior history as context)
+  const patientHistory = formatPatientHistory(patientContext.priorHistory ?? []);
   const soapChain = soapPrompt.pipe(structuredModelSoap);
   const soapWithConfidence = await soapChain.invoke({
     patientName: patientContext.name,
@@ -169,6 +195,7 @@ export async function transcriptToSoap(
     patientGender: patientContext.gender,
     extractedData: JSON.stringify(extractedData, null, 2),
     chiefComplaint: patientContext.chiefComplaint ?? extractedData.complaints.join(", "),
+    patientHistory,
   });
 
   const soapNote: SoapNote = {

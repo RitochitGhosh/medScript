@@ -12,8 +12,9 @@ import {
   updateDrugs,
   getDoctorByClerkId,
   getPatientById,
+  getConsultationsByPatient,
 } from "@workspace/db";
-import type { PatientGender } from "@workspace/types";
+import type { PatientGender, PatientHistoryEntry } from "@workspace/types";
 import { z } from "zod";
 
 const RequestSchema = z.object({
@@ -54,20 +55,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch patient's prior consultation history for LLM context (last 5 visits)
+    const priorConsultations = await getConsultationsByPatient(patient.id, 5).catch(() => []);
+    const priorHistory: PatientHistoryEntry[] = priorConsultations
+      .filter((c) => c.status === "approved" || c.status === "finalized")
+      .map((c) => ({
+        consultationId: c.id,
+        date: c.createdAt.toISOString().split("T")[0]!,
+        assessment: c.soapNote.assessment,
+        plan: c.soapNote.plan,
+        drugs: c.prescribedDrugs.map((d) => `${d.name} ${d.dosage}`),
+        diagnoses: c.diagnosisSuggestions.map((d) => d.diagnosis),
+      }));
+
     const patCtx = {
       name: patient.name,
       age: patient.age,
       gender: patient.gender,
       chiefComplaint: undefined,
+      priorHistory,
     };
 
-    // Run transcript → SOAP chain
+    // Run transcript → SOAP chain (with patient history context)
     const { soapNote, extractedData, hitlFlags } = await transcriptToSoap(transcript, patCtx);
 
-    // RAG retrieval for context enrichment
+    // RAG retrieval (best-effort — MongoDB Atlas may be paused on free tier)
+    // Context is logged for future use; failure is non-fatal.
     const ragQuery = `${extractedData.symptoms.join(", ")} ${extractedData.complaints.join(", ")}`;
-    const ragResult = await ragRetrieval(ragQuery, 5);
-    const _ragContext = formatRagContext(ragResult.chunks);
+    try {
+      const ragResult = await ragRetrieval(ragQuery, 5);
+      formatRagContext(ragResult.chunks); // enrichment context — available for future use
+    } catch (ragError) {
+      console.warn("RAG retrieval skipped (MongoDB unavailable):", ragError instanceof Error ? ragError.message : ragError);
+    }
 
     // Drug enrichment
     let prescribedDrugs: Awaited<ReturnType<typeof drugEnrichment>>["enrichedDrugs"] = [];

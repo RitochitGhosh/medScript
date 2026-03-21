@@ -233,3 +233,69 @@ export async function getConsultationStats(doctorId: string): Promise<{
     completedToday: todayResult[0]?.count ?? 0,
   };
 }
+
+/** Daily consultation counts for the activity heatmap (last N days) */
+export async function getConsultationActivity(
+  doctorId: string,
+  days = 365
+): Promise<{ date: string; count: number }[]> {
+  const result = await db.execute(sql`
+    SELECT
+      DATE(created_at AT TIME ZONE 'UTC')::text AS date,
+      COUNT(*)::int AS count
+    FROM consultations
+    WHERE doctor_id = ${doctorId}
+      AND created_at >= NOW() - (${days} || ' days')::interval
+    GROUP BY DATE(created_at AT TIME ZONE 'UTC')
+    ORDER BY date ASC
+  `);
+  return (result.rows as { date: string; count: number }[]);
+}
+
+/** Patients with unresolved HITL flags (attention required) */
+export async function getCriticalPatients(doctorId: string): Promise<
+  {
+    patientId: string;
+    patientName: string;
+    consultationId: string;
+    unresolvedFlags: number;
+    lastUpdated: Date;
+  }[]
+> {
+  const result = await db.execute(sql`
+    SELECT
+      c.patient_id AS "patientId",
+      c.patient_name AS "patientName",
+      c.id AS "consultationId",
+      (
+        SELECT COUNT(*)::int
+        FROM jsonb_array_elements(c.hitl_flags) AS f
+        WHERE (f->>'resolved')::boolean = false
+      ) AS "unresolvedFlags",
+      c.updated_at AS "lastUpdated"
+    FROM consultations c
+    WHERE c.doctor_id = ${doctorId}
+      AND c.status NOT IN ('finalized', 'approved')
+      AND (
+        SELECT COUNT(*)
+        FROM jsonb_array_elements(c.hitl_flags) AS f
+        WHERE (f->>'resolved')::boolean = false
+      ) > 0
+    ORDER BY "unresolvedFlags" DESC, c.updated_at DESC
+    LIMIT 20
+  `);
+
+  return (result.rows as {
+    patientId: string;
+    patientName: string;
+    consultationId: string;
+    unresolvedFlags: number;
+    lastUpdated: string;
+  }[]).map((r) => ({
+    patientId: r.patientId,
+    patientName: r.patientName,
+    consultationId: r.consultationId,
+    unresolvedFlags: r.unresolvedFlags,
+    lastUpdated: new Date(r.lastUpdated),
+  }));
+}
