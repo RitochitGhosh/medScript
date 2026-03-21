@@ -10,6 +10,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["mongodb"],
   },
+  serverExternalPackages: ["pdf-parse", "mongodb"],
 };
 
 export default nextConfig;

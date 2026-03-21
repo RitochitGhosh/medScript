@@ -17,7 +17,10 @@ function isPermanentError(error: unknown): boolean {
     msg.includes("Server selection timed out") ||
     msg.includes("ENOTFOUND") ||
     msg.includes("Authentication failed") ||
-    msg.includes("bad auth")
+    msg.includes("bad auth") ||
+    msg.includes("SSL alert") ||
+    msg.includes("certificate") ||
+    msg.includes("tlsv1")
   );
 }
 
@@ -35,6 +38,7 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 10000,
+        family: 4, // Force IPv4 — Atlas IPv6 requires separate ::/0 allowlist entry
       });
 
       await client.connect();

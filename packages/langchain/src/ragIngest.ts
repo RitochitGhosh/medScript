@@ -1,5 +1,5 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { getDb } from "@workspace/db";
 import type { KnowledgeCategory } from "@workspace/types";
 import { env } from "./env";
