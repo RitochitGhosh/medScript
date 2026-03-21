@@ -35,7 +35,7 @@ audio: <audio file blob> (webm, ogg, mp3)
 
 ## POST /api/generate-note
 
-Generates SOAP note from transcript using LangChain + GPT-4o, with drug enrichment.
+Generates SOAP note from transcript using LangChain + gpt-4o-mini, with drug enrichment.
 
 **Content-Type:** `application/json`
 
@@ -107,7 +107,7 @@ Generates SOAP note from transcript using LangChain + GPT-4o, with drug enrichme
 
 ## POST /api/diagnosis
 
-Generates AI differential diagnoses using RAG + GPT-4o + Tavily.
+Generates AI differential diagnoses using RAG + gpt-4o-mini + Tavily.
 
 **Content-Type:** `application/json`
 

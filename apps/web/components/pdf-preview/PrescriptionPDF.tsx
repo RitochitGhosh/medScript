@@ -245,9 +245,11 @@ const styles = StyleSheet.create({
 
 interface PrescriptionPDFProps {
   consultation: Consultation;
+  doctorName?: string;
+  clinicName?: string;
 }
 
-export function PrescriptionPDF({ consultation }: PrescriptionPDFProps) {
+export function PrescriptionPDF({ consultation, doctorName, clinicName }: PrescriptionPDFProps) {
   const date = new Date(consultation.createdAt).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "long",
@@ -270,6 +272,14 @@ export function PrescriptionPDF({ consultation }: PrescriptionPDFProps) {
             </Text>
           </View>
           <View>
+            {doctorName && (
+              <Text style={{ fontSize: 10, fontWeight: "bold", textAlign: "right", color: "#1a1a1a" }}>
+                {doctorName}
+              </Text>
+            )}
+            {clinicName && (
+              <Text style={styles.clinicInfo}>{clinicName}</Text>
+            )}
             <Text style={styles.clinicInfo}>Date: {date}</Text>
             <Text style={styles.clinicInfo}>HITL Verified Prescription</Text>
           </View>
@@ -404,7 +414,7 @@ export function PrescriptionPDF({ consultation }: PrescriptionPDFProps) {
           <Text style={styles.footerText}>
             Generated with MedScript AI | HITL Verified
           </Text>
-          <Text style={styles.footerText}>Ref: {consultation._id}</Text>
+          <Text style={styles.footerText}>Ref: {consultation.id}</Text>
         </View>
       </Page>
 
@@ -415,7 +425,15 @@ export function PrescriptionPDF({ consultation }: PrescriptionPDFProps) {
           <View>
             <Text style={styles.logo}>MedScript AI</Text>
           </View>
-          <Text style={styles.clinicInfo}>{date}</Text>
+          <View>
+            {doctorName && (
+              <Text style={{ fontSize: 10, fontWeight: "bold", textAlign: "right", color: "#1a1a1a" }}>
+                {doctorName}
+              </Text>
+            )}
+            {clinicName && <Text style={styles.clinicInfo}>{clinicName}</Text>}
+            <Text style={styles.clinicInfo}>{date}</Text>
+          </View>
         </View>
 
         <Text style={styles.summaryTitle}>Patient Prescription Summary</Text>

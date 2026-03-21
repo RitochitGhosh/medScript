@@ -3,6 +3,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
 import type { DiagnosisSuggestion } from "@workspace/types";
 import { tavilySearch } from "../tavily";
+import { env } from "../env";
 
 const DiagnosisSchema = z.object({
   diagnoses: z.array(
@@ -19,9 +20,9 @@ const DiagnosisSchema = z.object({
 });
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o",
+  modelName: "gpt-4o-mini",
   temperature: 0.1,
-  openAIApiKey: process.env["OPENAI_API_KEY"],
+  openAIApiKey: env.OPENAI_API_KEY,
 });
 
 const structuredModel = model.withStructuredOutput(DiagnosisSchema, {
@@ -65,7 +66,8 @@ export interface DiagnosisSuggestionResult {
 export async function diagnosisSuggestion(
   symptoms: string[],
   extractedData: object,
-  ragContext: string
+  ragContext: string,
+  ragIsRelevant: boolean = false
 ): Promise<DiagnosisSuggestionResult> {
   // Step 1: Generate diagnoses using LLM
   const chain = diagnosisPrompt.pipe(structuredModel);
@@ -75,31 +77,29 @@ export async function diagnosisSuggestion(
     ragContext,
   });
 
-  // Step 2: Enrich with live treatment guidelines via Tavily
+  // Step 2: Enrich with treatment guidelines.
+  // Use Tavily only when RAG knowledge base didn't have relevant content.
   const enrichedDiagnoses: DiagnosisSuggestion[] = await Promise.all(
     result.diagnoses.map(async (diag) => {
       let guidelineUrl: string | undefined;
       let guidelineSummary: string | undefined;
 
-      try {
-        const searchResult = await tavilySearch(
-          `latest treatment guidelines ${diag.diagnosis} India 2025`
-        );
-        if (searchResult.results.length > 0) {
-          const topResult = searchResult.results[0];
-          guidelineUrl = topResult?.url;
-          guidelineSummary = topResult?.content?.substring(0, 500);
+      if (!ragIsRelevant) {
+        try {
+          const searchResult = await tavilySearch(
+            `latest treatment guidelines ${diag.diagnosis} India 2025`
+          );
+          if (searchResult.results.length > 0) {
+            const topResult = searchResult.results[0];
+            guidelineUrl = topResult?.url;
+            guidelineSummary = topResult?.content?.substring(0, 500);
+          }
+        } catch (error) {
+          console.warn(`Tavily search failed for ${diag.diagnosis}:`, error);
         }
-      } catch (error) {
-        console.warn(`Tavily search failed for ${diag.diagnosis}:`, error);
-        // Continue without guideline - graceful degradation
       }
 
-      return {
-        ...diag,
-        guidelineUrl,
-        guidelineSummary,
-      };
+      return { ...diag, guidelineUrl, guidelineSummary };
     })
   );
 

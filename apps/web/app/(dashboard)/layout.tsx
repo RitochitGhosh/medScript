@@ -1,19 +1,23 @@
-import { getServerSession } from "next-auth";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { Button } from "@workspace/ui/components/button";
 import { Separator } from "@workspace/ui/components/separator";
+import { SignOutButton } from "@clerk/nextjs";
+import { getDoctorByClerkId } from "@workspace/db";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect("/login");
-  }
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const doctor = await getDoctorByClerkId(userId);
+  if (!doctor) redirect("/onboard");
+
+  const displayName = doctor.name;
 
   return (
     <div className="min-h-svh flex flex-col">
@@ -47,14 +51,14 @@ export default async function DashboardLayout({
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden md:block">
-              {session.user?.name}
+              {displayName}
             </span>
             <Separator orientation="vertical" className="h-5 hidden md:block" />
-            <Link href="/api/auth/signout">
+            <SignOutButton redirectUrl="/">
               <Button variant="ghost" size="sm">
                 Sign Out
               </Button>
-            </Link>
+            </SignOutButton>
           </div>
         </div>
       </header>

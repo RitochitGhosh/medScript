@@ -4,8 +4,10 @@
  * Fallback: OpenAI Whisper for STT
  */
 
-const ELEVENLABS_API_KEY = process.env["ELEVENLABS_API_KEY"];
-const OPENAI_API_KEY = process.env["OPENAI_API_KEY"];
+import { env } from "./env";
+
+const ELEVENLABS_API_KEY = env.ELEVENLABS_API_KEY;
+const OPENAI_API_KEY = env.OPENAI_API_KEY;
 
 // Default voice: Indian English - Priya (neutral, professional)
 const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Fallback to Sarah (calm, professional)

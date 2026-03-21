@@ -3,6 +3,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
 import type { Hospital } from "@workspace/types";
 import { tavilySearch } from "../tavily";
+import { env } from "../env";
 
 const HospitalListSchema = z.object({
   hospitals: z.array(
@@ -17,9 +18,9 @@ const HospitalListSchema = z.object({
 });
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o",
+  modelName: "gpt-4o-mini",
   temperature: 0,
-  openAIApiKey: process.env["OPENAI_API_KEY"],
+  openAIApiKey: env.OPENAI_API_KEY,
 });
 
 const structuredModel = model.withStructuredOutput(HospitalListSchema, {

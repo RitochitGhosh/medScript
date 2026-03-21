@@ -2,43 +2,49 @@
  * REQUESTLY ENDPOINT
  * Method: GET
  * Path: /api/consultation/[id]
- * Test in Requestly API Client before integration
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getConsultationById } from "@workspace/db";
+import { auth } from "@clerk/nextjs/server";
+import { getConsultationById, getDoctorByClerkId, getPatientByClerkId } from "@workspace/db";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHORIZED" },
-        { status: 401 }
-      );
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
     }
 
     const { id } = await params;
     const consultation = await getConsultationById(id);
     if (!consultation) {
-      return NextResponse.json(
-        { error: "Consultation not found", code: "NOT_FOUND" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Consultation not found", code: "NOT_FOUND" }, { status: 404 });
     }
 
-    return NextResponse.json(consultation);
+    // RBAC: doctors see their own consultations; patients see consultations for their patientId
+    const doctor = await getDoctorByClerkId(userId);
+    if (doctor) {
+      if (consultation.doctorId !== doctor.id) {
+        return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      }
+      return NextResponse.json(consultation);
+    }
+
+    const patient = await getPatientByClerkId(userId);
+    if (patient) {
+      if (consultation.patientId !== patient.id) {
+        return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      }
+      return NextResponse.json(consultation);
+    }
+
+    return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
   } catch (error) {
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to fetch consultation",
-        code: "FETCH_FAILED",
-      },
+      { error: error instanceof Error ? error.message : "Failed to fetch consultation", code: "FETCH_FAILED" },
       { status: 500 }
     );
   }

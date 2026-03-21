@@ -1,17 +1,13 @@
-import { getServerSession } from "next-auth";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
 import { Badge } from "@workspace/ui/components/badge";
-import { getConsultationsByDoctor } from "@workspace/db";
+import { getDoctorByClerkId, getConsultationsByDoctor } from "@workspace/db";
 import type { ConsultationStatus } from "@workspace/types";
 
 function StatusBadge({ status }: { status: ConsultationStatus }) {
@@ -30,11 +26,13 @@ function StatusBadge({ status }: { status: ConsultationStatus }) {
 }
 
 export default async function HistoryPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  const doctorId = (session.user as typeof session.user & { id: string }).id ?? "unknown";
-  const consultations = await getConsultationsByDoctor(doctorId, 50).catch(() => []);
+  const doctor = await getDoctorByClerkId(userId);
+  if (!doctor) redirect("/onboard");
+
+  const consultations = await getConsultationsByDoctor(doctor.id, 50).catch(() => []);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -60,7 +58,7 @@ export default async function HistoryPage() {
       ) : (
         <div className="grid gap-3">
           {consultations.map((c) => (
-            <Card key={c._id} className="hover:border-primary/50 transition-colors">
+            <Card key={c.id} className="hover:border-primary/50 transition-colors">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -83,10 +81,8 @@ export default async function HistoryPage() {
                         year: "numeric",
                       })}
                     </span>
-                    <Link href={`/consult/${c._id}`}>
-                      <Button size="sm" variant="outline">
-                        View
-                      </Button>
+                    <Link href={`/consult/${c.id}`}>
+                      <Button size="sm" variant="outline">View</Button>
                     </Link>
                   </div>
                 </div>

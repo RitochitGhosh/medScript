@@ -1,7 +1,7 @@
 import { Inter, Geist_Mono } from "next/font/google";
 import "@workspace/ui/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { SessionProvider } from "@/components/session-provider";
+import { ClerkProvider } from "@clerk/nextjs";
 import { cn } from "@workspace/ui/lib/utils";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -19,16 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
-    >
-      <body>
-        <SessionProvider>
+    <ClerkProvider>
+      <html
+        lang="en"
+        suppressHydrationWarning
+        className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
+      >
+        <body>
           <ThemeProvider>{children}</ThemeProvider>
-        </SessionProvider>
-      </body>
-    </html>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

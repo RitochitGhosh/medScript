@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@workspace/types": "*",
-    "elevenlabs": "^1.57.0"
+    "elevenlabs": "^1.57.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

@@ -2,13 +2,17 @@
  * REQUESTLY ENDPOINT
  * Method: POST
  * Path: /api/consultation/[id]/approve
- * Test in Requestly API Client before integration
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { updateHitlFlags, updateSoapNote, approveConsultation } from "@workspace/db";
+import { auth } from "@clerk/nextjs/server";
+import {
+  updateHitlFlags,
+  updateSoapNote,
+  approveConsultation,
+  getConsultationById,
+  getDoctorByClerkId,
+} from "@workspace/db";
 import { z } from "zod";
 import type { HitlFlag, SoapNote } from "@workspace/types";
 
@@ -35,54 +39,54 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHORIZED" },
-        { status: 401 }
-      );
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
     }
 
     const { id } = await params;
+
+    // Ownership check: only the doctor who created it can approve
+    const doctor = await getDoctorByClerkId(userId);
+    if (!doctor) {
+      return NextResponse.json({ error: "Doctor profile not found", code: "DOCTOR_NOT_FOUND" }, { status: 403 });
+    }
+
+    const consultation = await getConsultationById(id);
+    if (!consultation) {
+      return NextResponse.json({ error: "Not found", code: "NOT_FOUND" }, { status: 404 });
+    }
+    if (consultation.doctorId !== doctor.id) {
+      return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+    }
+
     const body = (await request.json()) as unknown;
     const parsed = RequestSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.message, code: "VALIDATION_ERROR" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: parsed.error.message, code: "VALIDATION_ERROR" }, { status: 400 });
     }
 
     const { hitlFlags, soapNote } = parsed.data;
 
-    // Check all flags resolved
     const unresolved = hitlFlags.filter((f) => !f.resolved);
     if (unresolved.length > 0) {
       return NextResponse.json(
-        {
-          error: `${unresolved.length} HITL flag(s) still unresolved`,
-          code: "HITL_UNRESOLVED",
-        },
+        { error: `${unresolved.length} HITL flag(s) still unresolved`, code: "HITL_UNRESOLVED" },
         { status: 422 }
       );
     }
 
-    // Save SOAP note edits and resolved flags
     await Promise.all([
       updateSoapNote(id, soapNote as SoapNote),
       updateHitlFlags(id, hitlFlags as HitlFlag[]),
     ]);
 
-    // Approve consultation
     await approveConsultation(id);
 
     return NextResponse.json({ success: true, status: "approved" });
   } catch (error) {
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Approval failed",
-        code: "APPROVAL_FAILED",
-      },
+      { error: error instanceof Error ? error.message : "Approval failed", code: "APPROVAL_FAILED" },
       { status: 500 }
     );
   }

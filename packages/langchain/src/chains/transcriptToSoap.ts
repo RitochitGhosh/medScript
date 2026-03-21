@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
 import type { PatientContext, SoapNote, HitlFlag, ExtractedClinicalData } from "@workspace/types";
+import { env } from "../env";
 
 const ExtractedDataSchema = z.object({
   symptoms: z.array(z.string()).describe("List of symptoms mentioned"),
@@ -23,9 +24,9 @@ const SoapWithConfidenceSchema = z.object({
 });
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o",
+  modelName: "gpt-4o-mini",
   temperature: 0.2,
-  openAIApiKey: process.env["OPENAI_API_KEY"],
+  openAIApiKey: env.OPENAI_API_KEY,
 });
 
 const structuredModelExtract = model.withStructuredOutput(ExtractedDataSchema, {

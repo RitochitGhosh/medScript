@@ -6,7 +6,7 @@ import { join, dirname } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, "../../../apps/web/.env.local") });
 
-const MONGODB_DB_NAME = process.env["MONGODB_DB_NAME"] ?? "medscript";
+import { env } from "./env";
 
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
@@ -26,24 +26,19 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
     return { client: cachedClient, db: cachedDb };
   }
 
-  const uri = process.env["MONGODB_URI"];
-  if (!uri) {
-    throw new Error("MONGODB_URI environment variable is not set");
-  }
-
   let attempt = 0;
   const maxAttempts = 3;
 
   while (attempt < maxAttempts) {
     try {
-      const client = new MongoClient(uri, {
+      const client = new MongoClient(env.MONGODB_URI, {
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 10000,
       });
 
       await client.connect();
-      const db = client.db(MONGODB_DB_NAME);
+      const db = client.db(env.MONGODB_DB_NAME);
 
       cachedClient = client;
       cachedDb = db;

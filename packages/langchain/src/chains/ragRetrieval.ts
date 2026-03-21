@@ -1,15 +1,20 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { getDb } from "@workspace/db";
 import type { RagChunk, KnowledgeCategory } from "@workspace/types";
+import { env } from "../env";
 
 const embeddings = new OpenAIEmbeddings({
   modelName: "text-embedding-3-small",
   dimensions: 1536,
-  openAIApiKey: process.env["OPENAI_API_KEY"],
+  openAIApiKey: env.OPENAI_API_KEY,
 });
+
+// Chunks scoring above this threshold are considered "relevant enough" to skip Tavily
+const RAG_RELEVANCE_THRESHOLD = 0.75;
 
 export interface RagRetrievalResult {
   chunks: RagChunk[];
+  isRelevant: boolean; // true when top chunk exceeds RAG_RELEVANCE_THRESHOLD
 }
 
 export async function ragRetrieval(
@@ -63,7 +68,9 @@ export async function ragRetrieval(
     metadata: r["metadata"] as RagChunk["metadata"],
   }));
 
-  return { chunks };
+  const isRelevant = chunks.length > 0 && chunks[0]!.score >= RAG_RELEVANCE_THRESHOLD;
+
+  return { chunks, isRelevant };
 }
 
 export function formatRagContext(chunks: RagChunk[]): string {

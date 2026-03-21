@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import {
   Card,
@@ -19,16 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { getConsultationsByDoctor, getConsultationStats } from "@workspace/db";
+import {
+  getDoctorByClerkId,
+  getConsultationsByDoctor,
+  getConsultationStats,
+} from "@workspace/db";
 import type { ConsultationStatus } from "@workspace/types";
 
 function StatusBadge({ status }: { status: ConsultationStatus }) {
-  const variants: Record<ConsultationStatus, "default" | "secondary" | "destructive" | "outline"> = {
-    draft: "secondary",
-    in_review: "default",
-    approved: "outline",
-    finalized: "outline",
-  };
+  const variants: Record<ConsultationStatus, "default" | "secondary" | "destructive" | "outline"> =
+    { draft: "secondary", in_review: "default", approved: "outline", finalized: "outline" };
   const labels: Record<ConsultationStatus, string> = {
     draft: "Draft",
     in_review: "In Review",
@@ -39,19 +38,15 @@ function StatusBadge({ status }: { status: ConsultationStatus }) {
 }
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  const doctorId = (session.user as typeof session.user & { id: string }).id ?? "unknown";
+  const doctor = await getDoctorByClerkId(userId);
+  if (!doctor) redirect("/onboard");
 
-  // Fetch data in parallel
   const [stats, consultations] = await Promise.all([
-    getConsultationStats(doctorId).catch(() => ({
-      total: 0,
-      pendingReview: 0,
-      completedToday: 0,
-    })),
-    getConsultationsByDoctor(doctorId, 10).catch(() => []),
+    getConsultationStats(doctor.id).catch(() => ({ total: 0, pendingReview: 0, completedToday: 0 })),
+    getConsultationsByDoctor(doctor.id, 10).catch(() => []),
   ]);
 
   return (
@@ -60,7 +55,8 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back, {session.user.name}
+            Welcome back, {doctor.name}
+            {doctor.specialization ? ` · ${doctor.specialization}` : ""}
           </p>
         </div>
         <Link href="/consult">
@@ -68,7 +64,6 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card>
           <CardHeader className="pb-2">
@@ -79,28 +74,21 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Pending Review</CardDescription>
-            <CardTitle className="text-3xl text-amber-500">
-              {stats.pendingReview}
-            </CardTitle>
+            <CardTitle className="text-3xl text-amber-500">{stats.pendingReview}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Completed Today</CardDescription>
-            <CardTitle className="text-3xl text-green-600">
-              {stats.completedToday}
-            </CardTitle>
+            <CardTitle className="text-3xl text-green-600">{stats.completedToday}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      {/* Recent Consultations */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Consultations</CardTitle>
-          <CardDescription>
-            Your last {consultations.length} consultations
-          </CardDescription>
+          <CardDescription>Your last {consultations.length} consultations</CardDescription>
         </CardHeader>
         <CardContent>
           {consultations.length === 0 ? (
@@ -125,7 +113,7 @@ export default async function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {consultations.map((c) => (
-                  <TableRow key={c._id}>
+                  <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.patientName}</TableCell>
                     <TableCell>
                       {c.patientAge}Y / {c.patientGender}
@@ -141,7 +129,7 @@ export default async function DashboardPage() {
                       })}
                     </TableCell>
                     <TableCell>
-                      <Link href={`/consult/${c._id}`}>
+                      <Link href={`/consult/${c.id}`}>
                         <Button variant="ghost" size="sm">
                           View
                         </Button>

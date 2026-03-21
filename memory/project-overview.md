@@ -16,7 +16,7 @@ MedScript AI is a production-ready voice-first clinical documentation assistant 
 - Backend: Next.js API routes (not separate Express)
 - Database: MongoDB Atlas (native driver, no Mongoose) + Vector Search for RAG
 - STT/TTS: ElevenLabs Scribe (primary), OpenAI Whisper (fallback)
-- LLM: LangChain.js + GPT-4o (structured output)
+- LLM: LangChain.js + gpt-4o-mini (structured output)
 - Web Search: Tavily API (drug prices, hospital search, treatment guidelines)
 - PDF: @react-pdf/renderer
 - Auth: NextAuth.js credentials provider

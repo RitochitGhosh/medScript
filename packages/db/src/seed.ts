@@ -3,14 +3,17 @@
  * Run: npx tsx src/seed.ts
  */
 
+import { config } from "dotenv";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: join(__dirname, "../../../apps/web/.env.local") });
+
 import { connectToDatabase } from "./client";
+import { z } from "zod";
 
-const OPENAI_API_KEY = process.env["OPENAI_API_KEY"];
-
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY is required");
-  process.exit(1);
-}
+const seedEnv = z.object({ OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required") }).parse(process.env);
 
 const medicalKnowledgeChunks = [
   // Common Indian Diseases
@@ -374,7 +377,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
   const response = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${seedEnv.OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

@@ -6,7 +6,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "seed": "tsx src/seed.ts",
-    "setup": "tsx src/setup.ts"
+    "setup": "tsx src/setup.ts",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config=drizzle.config.ts"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -16,12 +20,16 @@
   "dependencies": {
     "@workspace/types": "*",
     "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.1",
     "mongodb": "^6.16.0",
+    "pg": "^8.20.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
+    "@types/pg": "^8.20.0",
     "@workspace/typescript-config": "*",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3"
   }

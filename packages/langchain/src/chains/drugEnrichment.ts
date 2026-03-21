@@ -3,6 +3,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
 import type { PrescribedDrug, DrugInteraction } from "@workspace/types";
 import { tavilySearch } from "../tavily";
+import { env } from "../env";
 import { ragRetrieval } from "./ragRetrieval";
 
 const DrugEnrichmentSchema = z.object({
@@ -31,9 +32,9 @@ const InteractionSchema = z.object({
 });
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o",
+  modelName: "gpt-4o-mini",
   temperature: 0,
-  openAIApiKey: process.env["OPENAI_API_KEY"],
+  openAIApiKey: env.OPENAI_API_KEY,
 });
 
 const enrichDrugPrompt = ChatPromptTemplate.fromMessages([
@@ -88,18 +89,28 @@ export async function drugEnrichment(drugs: string[]): Promise<DrugEnrichmentRes
     return { enrichedDrugs: [], interactions: [] };
   }
 
-  // Step 1: Tavily search for each drug price
+  // Step 1: Check RAG for each drug first; fall back to Tavily only if not found
   const searchDataMap: Record<string, string> = {};
   await Promise.all(
     drugs.map(async (drug) => {
       try {
+        const ragResult = await ragRetrieval(`${drug} dosage price India pharmacy`, 3, "drug");
+        if (ragResult.isRelevant) {
+          searchDataMap[drug] = ragResult.chunks.map((c) => c.content).join("\n").substring(0, 500);
+          return;
+        }
+      } catch {
+        // fall through to Tavily
+      }
+
+      try {
         const result = await tavilySearch(`${drug} price India pharmacy 2025`);
         if (result.results.length > 0) {
-          const content = result.results
+          searchDataMap[drug] = result.results
             .slice(0, 2)
             .map((r) => r.content)
-            .join("\n");
-          searchDataMap[drug] = content.substring(0, 500);
+            .join("\n")
+            .substring(0, 500);
         }
       } catch (error) {
         console.warn(`Tavily search failed for drug ${drug}:`, error);

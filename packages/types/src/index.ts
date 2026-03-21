@@ -1,5 +1,7 @@
 // Shared TypeScript types for MedScript AI
 
+export type UserRole = "doctor" | "patient";
+
 export type PatientGender = "male" | "female" | "other";
 
 export type ConsultationStatus = "draft" | "in_review" | "approved" | "finalized";
@@ -17,7 +19,9 @@ export type KnowledgeCategory =
   | "diagnosis"
   | "treatment"
   | "icd10"
-  | "interaction";
+  | "interaction"
+  | "guideline"
+  | "general";
 
 export interface SoapNote {
   subjective: string;
@@ -89,9 +93,41 @@ export interface Geolocation {
   city: string;
 }
 
+export interface User {
+  id: string;
+  clerkUserId: string;
+  role: UserRole;
+  email: string;
+  createdAt: Date;
+}
+
+export interface DoctorProfile {
+  id: string; // doctors.id UUID
+  userId: string; // users.id UUID
+  clerkUserId: string;
+  name: string;
+  email: string;
+  specialization: string | null;
+  clinicName: string | null;
+  licenseNumber: string | null;
+}
+
+export interface PatientProfile {
+  id: string; // patients.id UUID — this is what doctors enter
+  userId: string | null; // null if patient has no Clerk account
+  name: string;
+  age: number;
+  gender: PatientGender;
+  phone: string | null;
+  bloodGroup: string | null;
+  allergies: string[];
+  createdAt: Date;
+}
+
 export interface Consultation {
-  _id: string;
-  doctorId: string;
+  id: string; // UUID (was _id in MongoDB)
+  doctorId: string; // doctors.id UUID
+  patientId: string; // patients.id UUID
   patientName: string;
   patientAge: number;
   patientGender: PatientGender;
@@ -178,6 +214,7 @@ export interface HospitalSearchResponse {
   hospitals: Hospital[];
 }
 
+/** @deprecated Use DoctorProfile */
 export interface Doctor {
   id: string;
   email: string;

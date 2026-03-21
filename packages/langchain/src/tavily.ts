@@ -1,4 +1,5 @@
-const TAVILY_API_KEY = process.env["TAVILY_API_KEY"];
+import { env } from "./env";
+const TAVILY_API_KEY = env.TAVILY_API_KEY;
 
 export interface TavilyResult {
   title: string;

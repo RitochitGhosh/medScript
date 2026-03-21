@@ -18,322 +18,232 @@ import { Progress } from "@workspace/ui/components/progress";
 import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
-import type { PatientGender, Consultation } from "@workspace/types";
+import type { Consultation, PatientProfile, PatientGender } from "@workspace/types";
 
 type Step = 1 | 2 | 3;
-
-interface PatientInfo {
-  name: string;
-  age: string;
-  gender: PatientGender | "";
-  chiefComplaint: string;
-}
-
-interface ProcessingStep {
-  label: string;
-  done: boolean;
-}
+interface ProcStep { label: string; done: boolean; }
 
 export default function ConsultPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
-  const [patientInfo, setPatientInfo] = useState<PatientInfo>({
-    name: "",
-    age: "",
-    gender: "",
-    chiefComplaint: "",
-  });
+
+  // Step 1
+  const [patientIdInput, setPatientIdInput] = useState("");
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [foundPatient, setFoundPatient] = useState<PatientProfile | null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+
+  // New patient form
+  const [newName, setNewName] = useState("");
+  const [newAge, setNewAge] = useState("");
+  const [newGender, setNewGender] = useState<PatientGender>("male");
+  const [newPhone, setNewPhone] = useState("");
+  const [newBloodGroup, setNewBloodGroup] = useState("");
+  const [creatingPatient, setCreatingPatient] = useState(false);
+
+  // Step 2
   const [transcript, setTranscript] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+
+  // Step 3
+  const [procSteps, setProcSteps] = useState<ProcStep[]>([
     { label: "Generating SOAP Note...", done: false },
     { label: "Searching Drug Database...", done: false },
     { label: "Fetching Diagnosis Suggestions...", done: false },
     { label: "Saving to Records...", done: false },
   ]);
 
-  function isPatientInfoValid() {
-    return (
-      patientInfo.name.trim() &&
-      patientInfo.age &&
-      Number(patientInfo.age) > 0 &&
-      patientInfo.gender
-    );
+  const markDone = (i: number) =>
+    setProcSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, done: true } : s)));
+
+  async function handleLookup() {
+    if (!patientIdInput.trim()) return;
+    setLookupError(null);
+    setFoundPatient(null);
+    setLookingUp(true);
+    try {
+      const res = await fetch(`/api/patients/${patientIdInput.trim()}`);
+      if (res.status === 404) {
+        setLookupError("No patient found with this ID. Register a new patient below.");
+        setShowNewForm(true);
+      } else if (!res.ok) {
+        setLookupError("Lookup failed. Check the ID and try again.");
+      } else {
+        setFoundPatient((await res.json()) as PatientProfile);
+        setShowNewForm(false);
+      }
+    } catch {
+      setLookupError("Network error.");
+    } finally {
+      setLookingUp(false);
+    }
   }
 
-  function handleTranscriptReady(t: string) {
-    setTranscript(t);
+  async function handleCreatePatient() {
+    setCreatingPatient(true);
+    try {
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, age: Number(newAge), gender: newGender, phone: newPhone || undefined, bloodGroup: newBloodGroup || undefined }),
+      });
+      if (!res.ok) throw new Error("Failed to create patient");
+      setFoundPatient((await res.json()) as PatientProfile);
+      setShowNewForm(false);
+      setLookupError(null);
+    } catch (err) {
+      setLookupError(err instanceof Error ? err.message : "Failed to create patient");
+    } finally {
+      setCreatingPatient(false);
+    }
   }
 
   async function generateNote() {
-    if (!transcript.trim()) {
-      setError("Transcript is empty. Please record or type the consultation.");
-      return;
-    }
-    setError(null);
+    if (!transcript.trim() || !foundPatient) return;
+    setRecordingError(null);
     setStep(3);
-
-    // Simulate sequential processing steps
-    const stepUpdater = async (index: number, delayMs: number) => {
-      await new Promise((r) => setTimeout(r, delayMs));
-      setProcessingSteps((prev) =>
-        prev.map((s, i) => (i === index ? { ...s, done: true } : s))
-      );
-    };
-
     try {
-      // Step 0: generate note (takes the actual API call)
-      const noteResponse = await fetch("/api/generate-note", {
+      const noteRes = await fetch("/api/generate-note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript,
-          patientContext: {
-            name: patientInfo.name,
-            age: Number(patientInfo.age),
-            gender: patientInfo.gender,
-            chiefComplaint: patientInfo.chiefComplaint,
-          },
-        }),
+        body: JSON.stringify({ patientId: foundPatient.id, transcript }),
       });
-
-      if (!noteResponse.ok) {
-        const data = (await noteResponse.json()) as { error?: string };
-        throw new Error(data.error ?? "Failed to generate note");
+      if (!noteRes.ok) {
+        const d = (await noteRes.json()) as { error?: string };
+        throw new Error(d.error ?? "Failed to generate note");
       }
+      const { consultation } = (await noteRes.json()) as { consultation: Consultation };
+      markDone(0); markDone(1);
 
-      const noteData = (await noteResponse.json()) as { consultation: Consultation };
-      const consultation = noteData.consultation;
-
-      await stepUpdater(0, 100);
-
-      // Step 1: drug enrichment (already done in generate-note, mark done)
-      await stepUpdater(1, 500);
-
-      // Step 2: diagnosis suggestions
-      const symptoms =
-        typeof consultation.soapNote.subjective === "string"
-          ? [consultation.soapNote.subjective]
-          : [];
-
-      const diagResponse = await fetch("/api/diagnosis", {
+      const diagRes = await fetch("/api/diagnosis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          consultationId: consultation._id,
-          symptoms,
-          extractedData: { soapNote: consultation.soapNote },
-        }),
+        body: JSON.stringify({ consultationId: consultation.id, symptoms: [consultation.soapNote.subjective], extractedData: {} }),
       });
+      if (!diagRes.ok) console.warn("Diagnosis skipped.");
 
-      if (!diagResponse.ok) {
-        console.warn("Diagnosis generation failed, continuing without diagnoses");
-      }
-
-      await stepUpdater(2, 300);
-      await stepUpdater(3, 300);
-
-      // Navigate to HITL review
-      router.push(`/consult/${consultation._id}`);
+      markDone(2); markDone(3);
+      router.push(`/consult/${consultation.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Processing failed");
+      setRecordingError(err instanceof Error ? err.message : "Processing failed");
       setStep(2);
     }
   }
 
-  const stepTitles: Record<Step, string> = {
-    1: "Patient Information",
-    2: "Voice Recording",
-    3: "Processing",
-  };
-
-  const progress = (step / 3) * 100;
+  const stepTitles: Record<Step, string> = { 1: "Find Patient", 2: "Voice Recording", 3: "Processing" };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">New Consultation</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Step {step} of 3 — {stepTitles[step]}
-        </p>
-        <Progress value={progress} className="mt-3 h-1.5" />
+        <p className="text-muted-foreground text-sm mt-1">Step {step} of 3 — {stepTitles[step]}</p>
+        <Progress value={(step / 3) * 100} className="mt-3 h-1.5" />
       </div>
 
-      {/* Step 1 — Patient Info */}
+      {/* Step 1 */}
       {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Patient Information</CardTitle>
-            <CardDescription>Enter patient details before starting the consultation</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="name">Patient Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Full name"
-                  value={patientInfo.name}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, name: e.target.value })}
-                />
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Find Patient</CardTitle>
+              <CardDescription>Enter the patient&apos;s ID. Patients can find their ID in their dashboard.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input placeholder="Patient ID (UUID)" value={patientIdInput} onChange={(e) => { setPatientIdInput(e.target.value); setFoundPatient(null); setLookupError(null); }} className="font-mono text-sm" onKeyDown={(e) => e.key === "Enter" && handleLookup()} />
+                <Button onClick={handleLookup} disabled={!patientIdInput.trim() || lookingUp}>{lookingUp ? "..." : "Look Up"}</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="age">Age (years)</Label>
-                <Input
-                  id="age"
-                  type="number"
-                  placeholder="35"
-                  min={0}
-                  max={150}
-                  value={patientInfo.age}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, age: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Gender</Label>
-                <div className="flex gap-2">
-                  {(["male", "female", "other"] as PatientGender[]).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setPatientInfo({ ...patientInfo, gender: g })}
-                      className={`flex-1 rounded-md border py-2 text-sm capitalize transition-colors ${
-                        patientInfo.gender === g
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "hover:bg-muted"
-                      }`}
-                    >
-                      {g}
-                    </button>
-                  ))}
+              {lookupError && <Alert variant={showNewForm ? "default" : "destructive"}><AlertDescription>{lookupError}</AlertDescription></Alert>}
+              {foundPatient && (
+                <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20 space-y-1">
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Patient found</p>
+                  <p className="font-semibold">{foundPatient.name}</p>
+                  <p className="text-sm text-muted-foreground">{foundPatient.age}Y &middot; {foundPatient.gender}{foundPatient.bloodGroup ? ` · ${foundPatient.bloodGroup}` : ""}</p>
+                  {foundPatient.allergies.length > 0 && <p className="text-xs text-amber-600">Allergies: {foundPatient.allergies.join(", ")}</p>}
+                  <Button className="w-full mt-2" onClick={() => setStep(2)}>Start Consultation</Button>
                 </div>
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="complaint">Chief Complaint</Label>
-                <Textarea
-                  id="complaint"
-                  placeholder="e.g., Fever for 3 days with headache..."
-                  rows={3}
-                  value={patientInfo.chiefComplaint}
-                  onChange={(e) =>
-                    setPatientInfo({ ...patientInfo, chiefComplaint: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              disabled={!isPatientInfoValid()}
-              onClick={() => setStep(2)}
-            >
-              Start Recording
-            </Button>
-          </CardContent>
-        </Card>
+              )}
+              {!showNewForm && !foundPatient && (
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowNewForm(true)}>+ Register a new patient</Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {showNewForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Register New Patient</CardTitle>
+                <CardDescription>A unique Patient ID will be generated — share it with the patient for future visits.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2"><Label>Full Name</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Rahul Sharma" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Age</Label><Input type="number" min={1} max={150} value={newAge} onChange={(e) => setNewAge(e.target.value)} /></div>
+                  <div className="space-y-2">
+                    <Label>Gender</Label>
+                    <div className="flex gap-1">
+                      {(["male", "female", "other"] as PatientGender[]).map((g) => (
+                        <button key={g} type="button" onClick={() => setNewGender(g)} className={`flex-1 rounded-md border py-2 text-xs capitalize transition-colors ${newGender === g ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>{g}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Phone</Label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+91 ..." /></div>
+                  <div className="space-y-2"><Label>Blood Group</Label><Input value={newBloodGroup} onChange={(e) => setNewBloodGroup(e.target.value)} placeholder="A+" /></div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => setShowNewForm(false)}>Cancel</Button>
+                  <Button className="flex-1" onClick={handleCreatePatient} disabled={creatingPatient || !newName || !newAge}>{creatingPatient ? "Registering..." : "Register Patient"}</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
-      {/* Step 2 — Voice Recording */}
-      {step === 2 && (
+      {/* Step 2 */}
+      {step === 2 && foundPatient && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Voice Recording</CardTitle>
-                <CardDescription>
-                  Record the consultation with {patientInfo.name}
-                </CardDescription>
-              </div>
-              <div className="flex gap-2 text-sm">
-                <Badge variant="outline">{patientInfo.age}Y</Badge>
-                <Badge variant="outline" className="capitalize">
-                  {patientInfo.gender}
-                </Badge>
-              </div>
+              <div><CardTitle>Voice Recording</CardTitle><CardDescription>Recording consultation with {foundPatient.name}</CardDescription></div>
+              <div className="flex gap-2"><Badge variant="outline">{foundPatient.age}Y</Badge><Badge variant="outline" className="capitalize">{foundPatient.gender}</Badge></div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <VoiceRecorder
-              onTranscriptReady={handleTranscriptReady}
-              disabled={false}
-            />
-
+            {recordingError && <Alert variant="destructive"><AlertDescription>{recordingError}</AlertDescription></Alert>}
+            <VoiceRecorder onTranscriptReady={(t) => setTranscript(t)} disabled={false} />
             <div className="space-y-2">
               <Label>Transcript</Label>
-              <Textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                rows={8}
-                placeholder="Transcript will appear here after recording. You can also type or edit it manually."
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                You can edit the transcript before generating the note.
-              </p>
+              <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={8} placeholder="Transcript will appear here after recording. You can also type or edit it." className="font-mono text-sm" />
             </div>
-
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)}>
-                Back
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={generateNote}
-                disabled={!transcript.trim()}
-              >
-                Generate SOAP Note
-              </Button>
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button className="flex-1" onClick={generateNote} disabled={!transcript.trim()}>Generate SOAP Note</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3 — Processing */}
+      {/* Step 3 */}
       {step === 3 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Processing Consultation</CardTitle>
-            <CardDescription>
-              AI is analyzing the consultation and generating documentation
-            </CardDescription>
-          </CardHeader>
+          <CardHeader><CardTitle>Processing Consultation</CardTitle><CardDescription>AI is generating clinical documentation</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {recordingError && <Alert variant="destructive"><AlertDescription>{recordingError}</AlertDescription></Alert>}
             <div className="space-y-3">
-              {processingSteps.map((s, i) => (
+              {procSteps.map((s, i) => (
                 <div key={i} className="flex items-center gap-3">
                   {s.done ? (
                     <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-4 h-4 text-green-600"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-600"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" /></svg>
                     </div>
                   ) : (
                     <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin shrink-0" />
                   )}
-                  {s.done ? (
-                    <span className="text-sm text-muted-foreground">{s.label}</span>
-                  ) : (
-                    <Skeleton className="h-4 w-48" />
-                  )}
+                  {s.done ? <span className="text-sm text-muted-foreground">{s.label}</span> : <Skeleton className="h-4 w-48" />}
                 </div>
               ))}
             </div>
