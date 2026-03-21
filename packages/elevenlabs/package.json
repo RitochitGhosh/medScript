@@ -1,0 +1,21 @@
+{
+  "name": "@workspace/elevenlabs",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@workspace/types": "*",
+    "elevenlabs": "^1.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@workspace/typescript-config": "*",
+    "typescript": "^5.9.3"
+  }
+}

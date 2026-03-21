@@ -1,0 +1,28 @@
+{
+  "name": "@workspace/db",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx src/seed.ts",
+    "setup": "tsx src/setup.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./schemas": "./src/schemas.ts"
+  },
+  "dependencies": {
+    "@workspace/types": "*",
+    "dotenv": "^17.3.1",
+    "mongodb": "^6.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@workspace/typescript-config": "*",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.3"
+  }
+}

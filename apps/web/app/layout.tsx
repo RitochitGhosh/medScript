@@ -1,20 +1,22 @@
-import { Geist, Geist_Mono, Inter } from "next/font/google"
-
-import "@workspace/ui/globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import { Inter, Geist_Mono } from "next/font/google";
+import "@workspace/ui/globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { SessionProvider } from "@/components/session-provider";
 import { cn } from "@workspace/ui/lib/utils";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'})
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
+export const metadata = {
+  title: "MedScript AI — Voice-First Clinical Documentation",
+  description:
+    "AI-powered clinical documentation assistant for doctors in underserved Indian communities",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html
@@ -23,8 +25,10 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
-  )
+  );
 }

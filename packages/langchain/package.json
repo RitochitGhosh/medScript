@@ -1,0 +1,28 @@
+{
+  "name": "@workspace/langchain",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./chains/*": "./src/chains/*.ts"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.45",
+    "@langchain/mongodb": "^0.1.0",
+    "@langchain/openai": "^0.5.9",
+    "@workspace/db": "*",
+    "@workspace/types": "*",
+    "langchain": "^0.3.23",
+    "mongodb": "^6.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@workspace/typescript-config": "*",
+    "typescript": "^5.9.3"
+  }
+}
