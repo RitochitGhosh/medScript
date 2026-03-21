@@ -31,9 +31,16 @@ export async function POST(request: NextRequest) {
 
     const { consultationId, symptoms, extractedData } = parsed.data;
 
-    const ragResult = await ragRetrieval(symptoms.join(", "), 5);
-    const ragContext = formatRagContext(ragResult.chunks);
-    const { diagnoses } = await diagnosisSuggestion(symptoms, extractedData, ragContext, ragResult.isRelevant);
+    let ragContext = "";
+    let ragIsRelevant = false;
+    try {
+      const ragResult = await ragRetrieval(symptoms.join(", "), 5);
+      ragContext = formatRagContext(ragResult.chunks);
+      ragIsRelevant = ragResult.isRelevant;
+    } catch (ragError) {
+      console.warn("RAG retrieval unavailable (MongoDB may be paused), proceeding without context:", ragError instanceof Error ? ragError.message : ragError);
+    }
+    const { diagnoses } = await diagnosisSuggestion(symptoms, extractedData, ragContext, ragIsRelevant);
 
     await updateDiagnoses(consultationId, diagnoses);
     await updateConsultationStatus(consultationId, "in_review");

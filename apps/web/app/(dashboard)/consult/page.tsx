@@ -18,7 +18,7 @@ import { Progress } from "@workspace/ui/components/progress";
 import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
-import type { Consultation, PatientProfile, PatientGender } from "@workspace/types";
+import type { PatientProfile, PatientGender } from "@workspace/types";
 
 type Step = 1 | 2 | 3;
 interface ProcStep { label: string; done: boolean; }
@@ -47,15 +47,18 @@ export default function ConsultPage() {
   const [recordingError, setRecordingError] = useState<string | null>(null);
 
   // Step 3
-  const [procSteps, setProcSteps] = useState<ProcStep[]>([
+  const initialProcSteps: ProcStep[] = [
     { label: "Generating SOAP Note...", done: false },
     { label: "Searching Drug Database...", done: false },
     { label: "Fetching Diagnosis Suggestions...", done: false },
     { label: "Saving to Records...", done: false },
-  ]);
+  ];
+  const [procSteps, setProcSteps] = useState<ProcStep[]>(initialProcSteps);
 
   const markDone = (i: number) =>
     setProcSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, done: true } : s)));
+  const updateLabel = (i: number, label: string) =>
+    setProcSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, label } : s)));
 
   async function handleLookup() {
     if (!patientIdInput.trim()) return;
@@ -102,29 +105,62 @@ export default function ConsultPage() {
   async function generateNote() {
     if (!transcript.trim() || !foundPatient) return;
     setRecordingError(null);
+    setProcSteps(initialProcSteps);
     setStep(3);
+
     try {
-      const noteRes = await fetch("/api/generate-note", {
+      const res = await fetch("/api/generate-note/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patientId: foundPatient.id, transcript }),
       });
-      if (!noteRes.ok) {
-        const d = (await noteRes.json()) as { error?: string };
-        throw new Error(d.error ?? "Failed to generate note");
+
+      if (!res.ok || !res.body) {
+        throw new Error("Stream connection failed");
       }
-      const { consultation } = (await noteRes.json()) as { consultation: Consultation };
-      markDone(0); markDone(1);
 
-      const diagRes = await fetch("/api/diagnosis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultationId: consultation.id, symptoms: [consultation.soapNote.subjective], extractedData: {} }),
-      });
-      if (!diagRes.ok) console.warn("Diagnosis skipped.");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let consultationId: string | null = null;
 
-      markDone(2); markDone(3);
-      router.push(`/consult/${consultation.id}`);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          const lines = part.split("\n");
+          const eventLine = lines.find((l) => l.startsWith("event:"));
+          const dataLine = lines.find((l) => l.startsWith("data:"));
+          if (!eventLine || !dataLine) continue;
+
+          const event = eventLine.replace("event:", "").trim();
+          const data = JSON.parse(dataLine.replace("data:", "").trim()) as {
+            step?: number; label?: string; done?: boolean; consultationId?: string; message?: string;
+          };
+
+          if (event === "step" && data.step !== undefined && data.label) {
+            if (data.done) {
+              markDone(data.step);
+            } else {
+              updateLabel(data.step, data.label);
+            }
+          } else if (event === "done" && data.consultationId) {
+            consultationId = data.consultationId;
+            markDone(0); markDone(1); markDone(2); markDone(3);
+          } else if (event === "error" && data.message) {
+            throw new Error(data.message);
+          }
+        }
+      }
+
+      if (consultationId) {
+        router.push(`/consult/${consultationId}`);
+      }
     } catch (err) {
       setRecordingError(err instanceof Error ? err.message : "Processing failed");
       setStep(2);

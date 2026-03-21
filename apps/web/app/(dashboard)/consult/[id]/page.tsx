@@ -17,8 +17,9 @@ import { ScrollArea } from "@workspace/ui/components/scroll-area";
 import { Separator } from "@workspace/ui/components/separator";
 import { SoapEditor } from "@/components/soap-note/SoapEditor";
 import { DiagnosisCard } from "@/components/diagnosis/DiagnosisCard";
+import { DosageCalculator } from "@/components/diagnosis/DosageCalculator";
 import { HospitalCard } from "@/components/referral/HospitalCard";
-import type { Consultation, SoapNote, HitlFlag, Hospital, PrescribedDrug } from "@workspace/types";
+import type { Consultation, SoapNote, HitlFlag, Hospital, PrescribedDrug, AuditLogEntry } from "@workspace/types";
 
 export default function ConsultReviewPage() {
   const params = useParams();
@@ -263,6 +264,9 @@ export default function ConsultReviewPage() {
                   <TabsTrigger value="referral" className="flex-1 text-xs">
                     Refer
                   </TabsTrigger>
+                  <TabsTrigger value="audit" className="flex-1 text-xs">
+                    Audit
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Tab 1: Diagnosis */}
@@ -293,7 +297,7 @@ export default function ConsultReviewPage() {
                         No drugs prescribed in this consultation.
                       </p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {/* Drug interaction warnings */}
                         {consultation.diagnosisSuggestions.some(
                           (d) => d.redFlags.length > 0
@@ -333,6 +337,12 @@ export default function ConsultReviewPage() {
                             </tbody>
                           </table>
                         </div>
+
+                        {/* Dosage calculator */}
+                        <DosageCalculator
+                          patientAge={consultation.patientAge}
+                          prescribedDrugNames={drugs.map((d) => d.name)}
+                        />
                       </div>
                     )}
                   </ScrollArea>
@@ -396,6 +406,51 @@ export default function ConsultReviewPage() {
                         </p>
                       )}
                     </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                {/* Tab 4: Audit Trail */}
+                <TabsContent value="audit" className="p-4">
+                  <ScrollArea className="h-[500px] pr-3">
+                    {consultation.auditLog.length === 0 ? (
+                      <div className="text-center py-10 text-muted-foreground">
+                        <p className="text-sm font-medium mb-1">No audit entries yet</p>
+                        <p className="text-xs">Audit entries are created when you resolve HITL flags.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Complete record of AI suggestions and doctor edits for this consultation.
+                        </p>
+                        {(consultation.auditLog as AuditLogEntry[]).map((entry, i) => (
+                          <div key={i} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-foreground capitalize">
+                                {entry.action.replace(/_/g, " ")}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {new Date(entry.timestamp).toLocaleString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="rounded-md bg-amber-50 border border-amber-100 px-2.5 py-1.5">
+                                <p className="text-[10px] font-medium text-amber-700 mb-0.5">AI Suggested</p>
+                                <p className="text-xs text-amber-900 leading-snug">{entry.aiSuggested || "—"}</p>
+                              </div>
+                              <div className="rounded-md bg-emerald-50 border border-emerald-100 px-2.5 py-1.5">
+                                <p className="text-[10px] font-medium text-emerald-700 mb-0.5">Doctor Approved</p>
+                                <p className="text-xs text-emerald-900 leading-snug">{entry.doctorApproved || "—"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </ScrollArea>
                 </TabsContent>
               </Tabs>

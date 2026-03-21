@@ -200,11 +200,12 @@ export async function getConsultationStats(doctorId: string): Promise<{
   total: number;
   pendingReview: number;
   completedToday: number;
+  approvedTotal: number;
 }> {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [totalResult, pendingResult, todayResult] = await Promise.all([
+  const [totalResult, pendingResult, todayResult, approvedResult] = await Promise.all([
     db
       .select({ count: count() })
       .from(consultations)
@@ -225,12 +226,22 @@ export async function getConsultationStats(doctorId: string): Promise<{
           gte(consultations.updatedAt, todayStart)
         )
       ),
+    db
+      .select({ count: count() })
+      .from(consultations)
+      .where(
+        and(
+          eq(consultations.doctorId, doctorId),
+          sql`${consultations.status} IN ('approved', 'finalized')`
+        )
+      ),
   ]);
 
   return {
     total: totalResult[0]?.count ?? 0,
     pendingReview: pendingResult[0]?.count ?? 0,
     completedToday: todayResult[0]?.count ?? 0,
+    approvedTotal: approvedResult[0]?.count ?? 0,
   };
 }
 

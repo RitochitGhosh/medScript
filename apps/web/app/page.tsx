@@ -13,6 +13,8 @@ import {
   ClipboardList,
   ChevronRight,
   Activity,
+  X,
+  Check,
 } from "lucide-react";
 
 const workflowSteps = [
@@ -212,6 +214,77 @@ export default async function LandingPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* Before / After */}
+        <section className="py-20 border-y bg-muted/20">
+          <div className="container mx-auto px-6 max-w-4xl">
+            <div className="text-center mb-12">
+              <p className="text-primary text-xs font-bold tracking-widest uppercase mb-3">
+                Impact
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+                15–20 minutes → 2–3 minutes
+              </h2>
+              <p className="text-muted-foreground max-w-md mx-auto text-base leading-relaxed">
+                For a doctor seeing 40 patients a day, MedScript AI saves over <strong>8 hours of paperwork</strong> — every single day.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Without */}
+              <div className="rounded-xl border border-red-200 bg-red-50/40 p-6">
+                <p className="text-xs font-bold uppercase tracking-widest text-red-600 mb-4">Without MedScript AI</p>
+                <ul className="space-y-3">
+                  {[
+                    { label: "Handwrite SOAP notes", time: "10 min" },
+                    { label: "Manual diagnosis lookup", time: "5 min" },
+                    { label: "Prescription writing", time: "5 min" },
+                  ].map((item) => (
+                    <li key={item.label} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                          <X className="h-3 w-3 text-red-500" />
+                        </div>
+                        <span className="text-sm text-foreground">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-red-600 shrink-0">{item.time}</span>
+                    </li>
+                  ))}
+                  <li className="pt-3 border-t border-red-200 flex items-center justify-between">
+                    <span className="text-sm font-bold">Total per patient</span>
+                    <span className="text-lg font-bold text-red-600">15–20 min</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* With */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-6">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-4">With MedScript AI</p>
+                <ul className="space-y-3">
+                  {[
+                    { label: "Voice record consultation", time: "2 min" },
+                    { label: "AI differential diagnosis", time: "Instant" },
+                    { label: "Auto-generated prescription", time: "30 sec" },
+                  ].map((item) => (
+                    <li key={item.label} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                          <Check className="h-3 w-3 text-emerald-600" />
+                        </div>
+                        <span className="text-sm text-foreground">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-600 shrink-0">{item.time}</span>
+                    </li>
+                  ))}
+                  <li className="pt-3 border-t border-emerald-200 flex items-center justify-between">
+                    <span className="text-sm font-bold">Total per patient</span>
+                    <span className="text-lg font-bold text-emerald-600">2–3 min</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </section>

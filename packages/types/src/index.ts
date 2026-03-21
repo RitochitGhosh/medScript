@@ -60,6 +60,7 @@ export interface DiagnosisSuggestion {
   redFlags: string[];
   guidelineUrl?: string;
   guidelineSummary?: string;
+  ragEnriched?: boolean; // true when diagnosis was informed by the medical knowledge base
 }
 
 export interface PrescribedDrug {

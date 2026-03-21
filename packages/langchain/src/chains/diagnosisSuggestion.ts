@@ -99,7 +99,7 @@ export async function diagnosisSuggestion(
         }
       }
 
-      return { ...diag, guidelineUrl, guidelineSummary };
+      return { ...diag, guidelineUrl, guidelineSummary, ragEnriched: ragIsRelevant };
     })
   );
 

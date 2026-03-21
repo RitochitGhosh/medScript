@@ -17,6 +17,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@workspace/ui/components/sheet";
+import { BookOpen } from "lucide-react";
 import type { DiagnosisSuggestion } from "@workspace/types";
 
 interface DiagnosisCardProps {
@@ -59,7 +60,19 @@ export function DiagnosisCard({ diagnosis, rank }: DiagnosisCardProps) {
             </span>
             <CardTitle className="text-base">{diagnosis.diagnosis}</CardTitle>
           </div>
-          <ConfidenceBadge confidence={diagnosis.confidence} />
+          <div className="flex items-center gap-1.5 shrink-0">
+            {diagnosis.ragEnriched && (
+              <Badge
+                variant="outline"
+                className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 gap-1 px-1.5 py-0.5"
+                title="Supported by medical knowledge base"
+              >
+                <BookOpen className="h-2.5 w-2.5" />
+                Evidence-based
+              </Badge>
+            )}
+            <ConfidenceBadge confidence={diagnosis.confidence} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

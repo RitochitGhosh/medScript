@@ -26,7 +26,7 @@ import {
   getCriticalPatients,
 } from "@workspace/db";
 import type { ConsultationStatus } from "@workspace/types";
-import { ClipboardList, Clock, CheckCircle2, Plus, ArrowRight, AlertTriangle } from "lucide-react";
+import { ClipboardList, Clock, CheckCircle2, Plus, ArrowRight, AlertTriangle, Timer } from "lucide-react";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { CriticalPatients } from "@/components/dashboard/CriticalPatients";
 
@@ -95,6 +95,16 @@ export default async function DashboardPage() {
     hour12: true,
   });
 
+  const timeSavedMins = stats.approvedTotal * 10;
+  const timeSavedHours = Math.floor(timeSavedMins / 60);
+  const timeSavedRemMins = timeSavedMins % 60;
+  const timeSavedLabel =
+    timeSavedHours > 0
+      ? timeSavedRemMins > 0
+        ? `${timeSavedHours}h ${timeSavedRemMins}m`
+        : `${timeSavedHours}h`
+      : `${timeSavedMins}m`;
+
   return (
     <div className="container mx-auto px-6 py-8 max-w-7xl space-y-6">
       {/* Welcome header */}
@@ -119,7 +129,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border shadow-none">
           <CardHeader className="pb-3 pt-5 px-5">
             <div className="flex items-center justify-between">
@@ -161,6 +171,22 @@ export default async function DashboardPage() {
             <CardTitle className="text-3xl font-bold tracking-tight mt-1 text-emerald-600 dark:text-emerald-500">
               {stats.completedToday}
             </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="border shadow-none bg-primary/5">
+          <CardHeader className="pb-3 pt-5 px-5">
+            <div className="flex items-center justify-between">
+              <CardDescription className="text-xs font-medium uppercase tracking-wider text-primary/80">
+                Time Saved
+              </CardDescription>
+              <div className="w-8 h-8 rounded-md bg-primary/15 flex items-center justify-center">
+                <Timer className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+            <CardTitle className="text-3xl font-bold tracking-tight mt-1 text-primary">
+              {timeSavedMins === 0 ? "—" : timeSavedLabel}
+            </CardTitle>
+            <p className="text-[11px] text-primary/60 mt-0.5">vs manual documentation</p>
           </CardHeader>
         </Card>
       </div>
