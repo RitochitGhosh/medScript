@@ -68,10 +68,10 @@ export default function ConsultPage() {
     try {
       const res = await fetch(`/api/patients/${patientIdInput.trim()}`);
       if (res.status === 404) {
-        setLookupError("No patient found with this ID. Register a new patient below.");
+        setLookupError("No patient found with this code. Register a new patient below.");
         setShowNewForm(true);
       } else if (!res.ok) {
-        setLookupError("Lookup failed. Check the ID and try again.");
+        setLookupError("Lookup failed. Check the code and try again.");
       } else {
         setFoundPatient((await res.json()) as PatientProfile);
         setShowNewForm(false);
@@ -183,11 +183,11 @@ export default function ConsultPage() {
           <Card>
             <CardHeader>
               <CardTitle>Find Patient</CardTitle>
-              <CardDescription>Enter the patient&apos;s ID. Patients can find their ID in their dashboard.</CardDescription>
+              <CardDescription>Enter the patient&apos;s 6-character code. Patients can find their code in their dashboard.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input placeholder="Patient ID (UUID)" value={patientIdInput} onChange={(e) => { setPatientIdInput(e.target.value); setFoundPatient(null); setLookupError(null); }} className="font-mono text-sm" onKeyDown={(e) => e.key === "Enter" && handleLookup()} />
+                <Input placeholder="Patient Code (e.g. A3X9M2)" value={patientIdInput} onChange={(e) => { setPatientIdInput(e.target.value); setFoundPatient(null); setLookupError(null); }} className="font-mono text-sm uppercase" onKeyDown={(e) => e.key === "Enter" && handleLookup()} />
                 <Button onClick={handleLookup} disabled={!patientIdInput.trim() || lookingUp}>{lookingUp ? "..." : "Look Up"}</Button>
               </div>
               {lookupError && <Alert variant={showNewForm ? "default" : "destructive"}><AlertDescription>{lookupError}</AlertDescription></Alert>}
@@ -210,7 +210,7 @@ export default function ConsultPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Register New Patient</CardTitle>
-                <CardDescription>A unique Patient ID will be generated — share it with the patient for future visits.</CardDescription>
+                <CardDescription>A unique 6-character Patient Code will be generated — share it with the patient for future visits.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2"><Label>Full Name</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Rahul Sharma" /></div>

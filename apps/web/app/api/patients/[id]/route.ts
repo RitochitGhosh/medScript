@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getPatientById } from "@workspace/db";
+import { getPatientById, getPatientByCode } from "@workspace/db";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
   _request: NextRequest,
@@ -13,7 +15,11 @@ export async function GET(
     }
 
     const { id } = await params;
-    const patient = await getPatientById(id);
+
+    // Prefer short patient code lookup; fall back to UUID for internal links.
+    const patient = UUID_RE.test(id)
+      ? await getPatientById(id)
+      : await getPatientByCode(id);
 
     if (!patient) {
       return NextResponse.json(

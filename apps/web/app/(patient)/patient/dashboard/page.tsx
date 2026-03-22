@@ -88,19 +88,19 @@ export default async function PatientDashboardPage() {
 
           <Separator className="my-4" />
 
-          {/* Patient ID */}
+          {/* Patient Code */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Your Patient ID
+              Your Patient Code
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono bg-muted px-3 py-2 rounded-lg break-all text-foreground">
-                {patient.id}
+              <code className="flex-1 text-sm font-mono bg-muted px-3 py-2 rounded-lg tracking-widest text-foreground text-center">
+                {patient.patientCode}
               </code>
-              <CopyPatientId id={patient.id} />
+              <CopyPatientId id={patient.patientCode} />
             </div>
             <p className="text-xs text-muted-foreground mt-1.5">
-              Share this ID with your doctor when starting a new consultation.
+              Share this 6-character code with your doctor when starting a new consultation.
             </p>
           </div>
         </CardContent>

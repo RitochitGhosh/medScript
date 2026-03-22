@@ -114,7 +114,8 @@ export interface DoctorProfile {
 }
 
 export interface PatientProfile {
-  id: string; // patients.id UUID — this is what doctors enter
+  id: string; // patients.id UUID — internal primary key
+  patientCode: string; // short unique code (6 chars) shared with the patient for lookup
   userId: string | null; // null if patient has no Clerk account
   name: string;
   age: number;
@@ -235,6 +236,8 @@ export interface DrugSearchResponse {
 
 export interface HospitalSearchResponse {
   hospitals: Hospital[];
+  /** Tavily AI answer synthesised from live web search results. */
+  summary?: string;
 }
 
 /** @deprecated Use DoctorProfile */

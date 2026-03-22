@@ -33,6 +33,7 @@ export default function ConsultReviewPage() {
   const [drugs, setDrugs] = useState<PrescribedDrug[]>([]);
   const [referralHospital, setReferralHospital] = useState<Hospital | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [hospitalSummary, setHospitalSummary] = useState<string | null>(null);
   const [loadingHospitals, setLoadingHospitals] = useState(false);
   const [geoCity, setGeoCity] = useState("Mumbai");
   const [approving, setApproving] = useState(false);
@@ -154,8 +155,9 @@ export default function ConsultReviewPage() {
       });
 
       if (!res.ok) throw new Error("Hospital search failed");
-      const data = (await res.json()) as { hospitals: Hospital[] };
+      const data = (await res.json()) as { hospitals: Hospital[]; summary?: string };
       setHospitals(data.hospitals);
+      setHospitalSummary(data.summary ?? null);
     } catch (err) {
       console.error("Hospital search error:", err);
     } finally {
@@ -391,6 +393,16 @@ export default function ConsultReviewPage() {
                         </div>
                       ) : hospitals.length > 0 ? (
                         <div className="space-y-3">
+                          {hospitalSummary && (
+                            <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/20 px-3 py-2.5">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400 mb-1">
+                                Tavily Web Summary
+                              </p>
+                              <p className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
+                                {hospitalSummary}
+                              </p>
+                            </div>
+                          )}
                           {hospitals.map((hospital, i) => (
                             <HospitalCard
                               key={i}

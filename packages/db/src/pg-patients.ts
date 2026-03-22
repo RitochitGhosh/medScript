@@ -4,9 +4,41 @@ import { patients } from "./drizzle/schema";
 import { getUserByClerkId } from "./pg-users";
 import type { PatientProfile, PatientGender } from "@workspace/types";
 
+// ---------------------------------------------------------------------------
+// Patient code generation
+// ---------------------------------------------------------------------------
+
+/** Characters used in patient codes — excludes visually ambiguous chars (0,O,1,I). */
+const CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CODE_LENGTH = 6;
+
+function randomCode(): string {
+  return Array.from(
+    { length: CODE_LENGTH },
+    () => CODE_CHARSET[Math.floor(Math.random() * CODE_CHARSET.length)]
+  ).join("");
+}
+
+/** Generates a unique 6-char patient code, retrying on collision. */
+async function generateUniquePatientCode(): Promise<string> {
+  for (let attempts = 0; attempts < 10; attempts++) {
+    const code = randomCode();
+    const existing = await db.query.patients.findFirst({
+      where: eq(patients.patientCode, code),
+    });
+    if (!existing) return code;
+  }
+  throw new Error("Failed to generate a unique patient code after 10 attempts");
+}
+
+// ---------------------------------------------------------------------------
+// Row mapper
+// ---------------------------------------------------------------------------
+
 function toPatientProfile(row: typeof patients.$inferSelect): PatientProfile {
   return {
     id: row.id,
+    patientCode: row.patientCode,
     userId: row.userId,
     name: row.name,
     age: row.age,
@@ -20,6 +52,10 @@ function toPatientProfile(row: typeof patients.$inferSelect): PatientProfile {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
+
 export async function createPatient(data: {
   name: string;
   age: number;
@@ -29,9 +65,11 @@ export async function createPatient(data: {
   allergies?: string[];
   userId?: string;
 }): Promise<PatientProfile> {
+  const patientCode = await generateUniquePatientCode();
   const [row] = await db
     .insert(patients)
     .values({
+      patientCode,
       name: data.name,
       age: data.age,
       gender: data.gender,
@@ -49,6 +87,14 @@ export async function createPatient(data: {
 export async function getPatientById(patientId: string): Promise<PatientProfile | null> {
   const row = await db.query.patients.findFirst({
     where: eq(patients.id, patientId),
+  });
+  return row ? toPatientProfile(row) : null;
+}
+
+/** Look up a patient by their short 6-char code. Used by the consult page lookup. */
+export async function getPatientByCode(code: string): Promise<PatientProfile | null> {
+  const row = await db.query.patients.findFirst({
+    where: eq(patients.patientCode, code.toUpperCase()),
   });
   return row ? toPatientProfile(row) : null;
 }
@@ -91,6 +137,7 @@ export async function getPatientsByDoctor(
   const result = await db.execute(sql`
     SELECT
       p.id,
+      p.patient_code,
       p.user_id,
       p.name,
       p.age,
@@ -118,6 +165,7 @@ export async function getPatientsByDoctor(
     const row = r as Record<string, unknown>;
     return {
       id: row["id"] as string,
+      patientCode: row["patient_code"] as string,
       userId: row["user_id"] as string | null,
       name: row["name"] as string,
       age: row["age"] as number,

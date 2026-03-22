@@ -12,13 +12,19 @@ interface Props {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DAYS = ["", "Mon", "", "Wed", "", "Fri", ""];
+// 7 rows: Sun–Sat. Show Mon, Wed, Fri labels on rows 1, 3, 5 (0-indexed).
+const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
+
+// Each cell = 11px wide + 2px gap = 13px per column
+const COL_WIDTH = 13;
+// Day-label column width (w-6 = 24px + mr-1.5 = 6px = 30px total)
+const DAY_COL_WIDTH = 30;
 
 function getIntensity(count: number): string {
   if (count === 0) return "bg-muted";
-  if (count <= 2) return "bg-primary/20";
-  if (count <= 5) return "bg-primary/45";
-  if (count <= 10) return "bg-primary/70";
+  if (count <= 2) return "bg-primary/25";
+  if (count <= 5) return "bg-primary/50";
+  if (count <= 10) return "bg-primary/75";
   return "bg-primary";
 }
 
@@ -27,16 +33,12 @@ export function ActivityHeatmap({ activity }: Props) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Build a map from date string to count
     const countMap = new Map<string, number>();
-    for (const d of activity) {
-      countMap.set(d.date, d.count);
-    }
+    for (const d of activity) countMap.set(d.date, d.count);
 
-    // Go back 52 weeks (364 days) + align to Sunday start
+    // Start 52 full weeks ago, aligned to Sunday
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - 364);
-    // Move to the nearest Sunday before or on startDate
     startDate.setDate(startDate.getDate() - startDate.getDay());
 
     const weeks: { date: Date; count: number }[][] = [];
@@ -52,6 +54,7 @@ export function ActivityHeatmap({ activity }: Props) {
       const count = countMap.get(dateStr) ?? 0;
       currentWeek.push({ date: new Date(cursor), count });
 
+      // Emit month label on the first Sunday of a new month
       const month = cursor.getMonth();
       if (month !== lastMonth && cursor.getDay() === 0) {
         monthLabels.push({ label: MONTHS[month]!, col });
@@ -59,6 +62,7 @@ export function ActivityHeatmap({ activity }: Props) {
       }
 
       cursor.setDate(cursor.getDate() + 1);
+
       if (cursor.getDay() === 0) {
         weeks.push(currentWeek);
         currentWeek = [];
@@ -70,47 +74,64 @@ export function ActivityHeatmap({ activity }: Props) {
     return { weeks, monthLabels };
   }, [activity]);
 
+  const totalConsultations = useMemo(
+    () => activity.reduce((sum, d) => sum + d.count, 0),
+    [activity]
+  );
+
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[680px]">
-        {/* Month labels */}
-        <div className="flex mb-1 ml-8" style={{ gap: "3px" }}>
+      <div style={{ minWidth: `${DAY_COL_WIDTH + weeks.length * COL_WIDTH + 16}px` }}>
+
+        {/* Month labels — positioned relative to the grid, offset by day-label column */}
+        <div
+          className="relative h-5 mb-1"
+          style={{ marginLeft: `${DAY_COL_WIDTH}px` }}
+        >
           {monthLabels.map(({ label, col }, i) => (
-            <div
+            <span
               key={i}
-              className="text-[10px] text-muted-foreground"
-              style={{ position: "absolute", marginLeft: `${32 + col * 15}px` }}
+              className="absolute text-[10px] text-muted-foreground select-none"
+              style={{ left: `${col * COL_WIDTH}px` }}
             >
               {label}
-            </div>
+            </span>
           ))}
-          <div className="h-4" />
         </div>
 
+        {/* Grid rows */}
         <div className="flex gap-0.5">
-          {/* Day labels */}
-          <div className="flex flex-col gap-0.5 mr-1.5">
-            {DAYS.map((day, i) => (
-              <div key={i} className="text-[10px] text-muted-foreground h-[11px] leading-[11px] w-6 text-right">
+          {/* Day-of-week labels */}
+          <div className="flex flex-col gap-0.5 mr-1.5 w-6 shrink-0">
+            {DAY_LABELS.map((day, i) => (
+              <div
+                key={i}
+                className="text-[10px] text-muted-foreground h-[11px] leading-[11px] text-right select-none"
+              >
                 {day}
               </div>
             ))}
           </div>
 
-          {/* Heatmap grid */}
+          {/* Columns (weeks) */}
           {weeks.map((week, wi) => (
             <div key={wi} className="flex flex-col gap-0.5">
               {Array.from({ length: 7 }).map((_, di) => {
                 const day = week[di];
                 if (!day) {
+                  // Pad partial first/last week
                   return <div key={di} className="w-[11px] h-[11px]" />;
                 }
-                const label = `${day.date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}: ${day.count} consultation${day.count !== 1 ? "s" : ""}`;
+                const label = `${day.date.toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}: ${day.count} consultation${day.count !== 1 ? "s" : ""}`;
                 return (
                   <div
                     key={di}
                     title={label}
-                    className={`w-[11px] h-[11px] rounded-sm ${getIntensity(day.count)} transition-opacity hover:opacity-80 cursor-default`}
+                    className={`w-[11px] h-[11px] rounded-[2px] ${getIntensity(day.count)} transition-opacity hover:opacity-70 cursor-default`}
                   />
                 );
               })}
@@ -118,13 +139,20 @@ export function ActivityHeatmap({ activity }: Props) {
           ))}
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-1.5 mt-3 ml-8">
-          <span className="text-[10px] text-muted-foreground">Less</span>
-          {["bg-muted", "bg-primary/20", "bg-primary/45", "bg-primary/70", "bg-primary"].map((cls, i) => (
-            <div key={i} className={`w-[11px] h-[11px] rounded-sm ${cls}`} />
-          ))}
-          <span className="text-[10px] text-muted-foreground">More</span>
+        {/* Footer: legend + total */}
+        <div className="flex items-center justify-between mt-3" style={{ marginLeft: `${DAY_COL_WIDTH}px` }}>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">Less</span>
+            {(["bg-muted", "bg-primary/25", "bg-primary/50", "bg-primary/75", "bg-primary"] as const).map(
+              (cls, i) => (
+                <div key={i} className={`w-[11px] h-[11px] rounded-[2px] ${cls}`} />
+              )
+            )}
+            <span className="text-[10px] text-muted-foreground">More</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {totalConsultations} consultation{totalConsultations !== 1 ? "s" : ""} in the last year
+          </span>
         </div>
       </div>
     </div>

@@ -8,13 +8,9 @@ import {
   pgEnum,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type {
-  SoapNote,
-  DiagnosisSuggestion,
-  PrescribedDrug,
   HitlFlag,
-  AuditLogEntry,
-  ReferralHospital,
   Geolocation,
 } from "@workspace/types";
 
@@ -55,6 +51,11 @@ export const doctors = pgTable("doctors", {
 
 export const patients = pgTable("patients", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** Short human-readable code shared with the patient for lookup. */
+  patientCode: text("patient_code")
+    .unique()
+    .notNull()
+    .default(sql`upper(substr(md5(random()::text), 1, 6))`),
   /** Nullable — a doctor can create a patient who hasn't signed up yet */
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   name: text("name").notNull(),
@@ -87,19 +88,16 @@ export const consultations = pgTable("consultations", {
   rawTranscript: text("raw_transcript").notNull(),
   status: consultationStatusEnum("status").default("draft").notNull(),
 
-  // JSONB columns — always read/written as units
-  soapNote: jsonb("soap_note").$type<SoapNote>().notNull(),
-  diagnosisSuggestions: jsonb("diagnosis_suggestions")
-    .$type<DiagnosisSuggestion[]>()
-    .default([])
-    .notNull(),
-  prescribedDrugs: jsonb("prescribed_drugs")
-    .$type<PrescribedDrug[]>()
-    .default([])
-    .notNull(),
+  // Encrypted text columns — serialised to JSON then AES-256-GCM encrypted at rest.
+  // Only the patient and diagnosing doctor can access these through the application layer.
+  soapNote: text("soap_note").notNull(),
+  diagnosisSuggestions: text("diagnosis_suggestions").notNull(),
+  prescribedDrugs: text("prescribed_drugs").notNull(),
+  auditLog: text("audit_log").notNull(),
+  referralHospital: text("referral_hospital"),
+
+  // JSONB columns — workflow metadata, not core PHI; kept as JSONB for SQL operations.
   hitlFlags: jsonb("hitl_flags").$type<HitlFlag[]>().default([]).notNull(),
-  auditLog: jsonb("audit_log").$type<AuditLogEntry[]>().default([]).notNull(),
-  referralHospital: jsonb("referral_hospital").$type<ReferralHospital>(),
   geolocation: jsonb("geolocation").$type<Geolocation>(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),

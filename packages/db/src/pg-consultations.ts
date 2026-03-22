@@ -1,6 +1,7 @@
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import { db } from "./drizzle/client";
 import { consultations } from "./drizzle/schema";
+import { encrypt, decrypt, encryptJSON, decryptJSON } from "./crypto";
 import type {
   Consultation,
   ConsultationStatus,
@@ -14,6 +15,10 @@ import type {
   PatientGender,
 } from "@workspace/types";
 
+// ---------------------------------------------------------------------------
+// Row mapper — decrypts all sensitive fields
+// ---------------------------------------------------------------------------
+
 function toConsultation(row: typeof consultations.$inferSelect): Consultation {
   return {
     id: row.id,
@@ -22,19 +27,25 @@ function toConsultation(row: typeof consultations.$inferSelect): Consultation {
     patientName: row.patientName,
     patientAge: row.patientAge,
     patientGender: row.patientGender as PatientGender,
-    rawTranscript: row.rawTranscript,
-    soapNote: row.soapNote as SoapNote,
-    diagnosisSuggestions: (row.diagnosisSuggestions as DiagnosisSuggestion[]) ?? [],
-    prescribedDrugs: (row.prescribedDrugs as PrescribedDrug[]) ?? [],
+    rawTranscript: decrypt(row.rawTranscript),
+    soapNote: decryptJSON<SoapNote>(row.soapNote),
+    diagnosisSuggestions: decryptJSON<DiagnosisSuggestion[]>(row.diagnosisSuggestions),
+    prescribedDrugs: decryptJSON<PrescribedDrug[]>(row.prescribedDrugs),
     hitlFlags: (row.hitlFlags as HitlFlag[]) ?? [],
-    auditLog: (row.auditLog as AuditLogEntry[]) ?? [],
-    referralHospital: row.referralHospital as ReferralHospital | undefined,
+    auditLog: decryptJSON<AuditLogEntry[]>(row.auditLog),
+    referralHospital: row.referralHospital
+      ? decryptJSON<ReferralHospital>(row.referralHospital)
+      : undefined,
     geolocation: row.geolocation as Geolocation | undefined,
     status: row.status as ConsultationStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Writes
+// ---------------------------------------------------------------------------
 
 export async function createConsultation(data: {
   doctorId: string;
@@ -59,18 +70,118 @@ export async function createConsultation(data: {
       patientName: data.patientName,
       patientAge: data.patientAge,
       patientGender: data.patientGender,
-      rawTranscript: data.rawTranscript,
-      soapNote: data.soapNote,
-      diagnosisSuggestions: data.diagnosisSuggestions ?? [],
-      prescribedDrugs: data.prescribedDrugs ?? [],
+      rawTranscript: encrypt(data.rawTranscript),
+      soapNote: encryptJSON(data.soapNote),
+      diagnosisSuggestions: encryptJSON(data.diagnosisSuggestions ?? []),
+      prescribedDrugs: encryptJSON(data.prescribedDrugs ?? []),
       hitlFlags: data.hitlFlags ?? [],
-      auditLog: data.auditLog ?? [],
+      auditLog: encryptJSON(data.auditLog ?? []),
       status: data.status ?? "draft",
       geolocation: data.geolocation ?? null,
     })
     .returning();
+
   return toConsultation(row!);
 }
+
+export async function updateConsultationStatus(
+  id: string,
+  status: ConsultationStatus
+): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateSoapNote(id: string, soapNote: SoapNote): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ soapNote: encryptJSON(soapNote), updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateDiagnoses(
+  id: string,
+  diagnoses: DiagnosisSuggestion[]
+): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ diagnosisSuggestions: encryptJSON(diagnoses), updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateDrugs(id: string, drugs: PrescribedDrug[]): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ prescribedDrugs: encryptJSON(drugs), updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateReferralHospital(
+  id: string,
+  hospital: ReferralHospital
+): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ referralHospital: encryptJSON(hospital), updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateHitlFlags(id: string, hitlFlags: HitlFlag[]): Promise<boolean> {
+  const result = await db
+    .update(consultations)
+    .set({ hitlFlags, updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function appendAuditLog(id: string, entry: AuditLogEntry): Promise<boolean> {
+  // Fetch-modify-write: decrypt existing log, append, re-encrypt
+  const row = await db.query.consultations.findFirst({
+    where: eq(consultations.id, id),
+  });
+  if (!row) return false;
+
+  const existing = row.auditLog ? decryptJSON<AuditLogEntry[]>(row.auditLog) : [];
+  const updated = [...existing, entry];
+
+  const result = await db
+    .update(consultations)
+    .set({ auditLog: encryptJSON(updated), updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function approveConsultation(id: string): Promise<boolean> {
+  const row = await db.query.consultations.findFirst({
+    where: eq(consultations.id, id),
+  });
+  if (!row) return false;
+
+  const flags = (row.hitlFlags as HitlFlag[]) ?? [];
+  const unresolved = flags.filter((f) => !f.resolved);
+  if (unresolved.length > 0) {
+    throw new Error(
+      `Cannot approve: ${unresolved.length} HITL flag(s) are unresolved`
+    );
+  }
+
+  const result = await db
+    .update(consultations)
+    .set({ status: "approved", updatedAt: new Date() })
+    .where(eq(consultations.id, id));
+  return (result.rowCount ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
 
 export async function getConsultationById(id: string): Promise<Consultation | null> {
   const row = await db.query.consultations.findFirst({
@@ -103,99 +214,6 @@ export async function getConsultationsByPatient(
   return rows.map(toConsultation);
 }
 
-export async function updateConsultationStatus(
-  id: string,
-  status: ConsultationStatus
-): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function updateSoapNote(id: string, soapNote: SoapNote): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ soapNote, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function updateDiagnoses(
-  id: string,
-  diagnoses: DiagnosisSuggestion[]
-): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ diagnosisSuggestions: diagnoses, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function updateDrugs(id: string, drugs: PrescribedDrug[]): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ prescribedDrugs: drugs, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function updateReferralHospital(
-  id: string,
-  hospital: ReferralHospital
-): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ referralHospital: hospital, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function updateHitlFlags(id: string, hitlFlags: HitlFlag[]): Promise<boolean> {
-  const result = await db
-    .update(consultations)
-    .set({ hitlFlags, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function appendAuditLog(id: string, entry: AuditLogEntry): Promise<boolean> {
-  // Fetch-modify-write: JSONB arrays don't support atomic append via Drizzle typed API
-  const row = await db.query.consultations.findFirst({
-    where: eq(consultations.id, id),
-  });
-  if (!row) return false;
-
-  const updated = [...((row.auditLog as AuditLogEntry[]) ?? []), entry];
-  const result = await db
-    .update(consultations)
-    .set({ auditLog: updated, updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
-export async function approveConsultation(id: string): Promise<boolean> {
-  const row = await db.query.consultations.findFirst({
-    where: eq(consultations.id, id),
-  });
-  if (!row) return false;
-
-  const flags = (row.hitlFlags as HitlFlag[]) ?? [];
-  const unresolved = flags.filter((f) => !f.resolved);
-  if (unresolved.length > 0) {
-    throw new Error(
-      `Cannot approve: ${unresolved.length} HITL flag(s) are unresolved`
-    );
-  }
-
-  const result = await db
-    .update(consultations)
-    .set({ status: "approved", updatedAt: new Date() })
-    .where(eq(consultations.id, id));
-  return (result.rowCount ?? 0) > 0;
-}
-
 export async function getConsultationStats(doctorId: string): Promise<{
   total: number;
   pendingReview: number;
@@ -222,7 +240,7 @@ export async function getConsultationStats(doctorId: string): Promise<{
       .where(
         and(
           eq(consultations.doctorId, doctorId),
-          eq(consultations.status, "finalized"),
+          sql`${consultations.status} IN ('approved', 'finalized')`,
           gte(consultations.updatedAt, todayStart)
         )
       ),
@@ -263,7 +281,10 @@ export async function getConsultationActivity(
   return (result.rows as { date: string; count: number }[]);
 }
 
-/** Patients with unresolved HITL flags (attention required) */
+/**
+ * Patients with unresolved HITL flags (attention required).
+ * hitlFlags is kept as JSONB so this SQL query remains functional.
+ */
 export async function getCriticalPatients(doctorId: string): Promise<
   {
     patientId: string;

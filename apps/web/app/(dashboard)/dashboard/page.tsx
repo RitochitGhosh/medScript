@@ -72,7 +72,7 @@ export default async function DashboardPage() {
   if (!doctor) redirect("/onboard");
 
   const [stats, consultations, activity, criticalPatients] = await Promise.all([
-    getConsultationStats(doctor.id).catch(() => ({ total: 0, pendingReview: 0, completedToday: 0 })),
+    getConsultationStats(doctor.id).catch(() => ({ total: 0, pendingReview: 0, completedToday: 0, approvedTotal: 0 })),
     getConsultationsByDoctor(doctor.id, 10).catch(() => []),
     getConsultationActivity(doctor.id, 365).catch(() => []),
     getCriticalPatients(doctor.id).catch(() => []),
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
     hour12: true,
   });
 
-  const timeSavedMins = stats.approvedTotal * 10;
+  const timeSavedMins = stats.approvedTotal * 5;
   const timeSavedHours = Math.floor(timeSavedMins / 60);
   const timeSavedRemMins = timeSavedMins % 60;
   const timeSavedLabel =
@@ -186,7 +186,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-3xl font-bold tracking-tight mt-1 text-primary">
               {timeSavedMins === 0 ? "—" : timeSavedLabel}
             </CardTitle>
-            <p className="text-[11px] text-primary/60 mt-0.5">vs manual documentation</p>
+            <p className="text-[11px] text-primary/60 mt-0.5">~5 min saved per consultation</p>
           </CardHeader>
         </Card>
       </div>
