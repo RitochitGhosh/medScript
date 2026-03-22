@@ -24,7 +24,7 @@ function toConsultation(row: typeof consultations.$inferSelect): Consultation {
     id: row.id,
     doctorId: row.doctorId,
     patientId: row.patientId,
-    patientName: row.patientName,
+    patientName: decrypt(row.patientName),
     patientAge: row.patientAge,
     patientGender: row.patientGender as PatientGender,
     rawTranscript: decrypt(row.rawTranscript),
@@ -67,7 +67,7 @@ export async function createConsultation(data: {
     .values({
       doctorId: data.doctorId,
       patientId: data.patientId,
-      patientName: data.patientName,
+      patientName: encrypt(data.patientName),
       patientAge: data.patientAge,
       patientGender: data.patientGender,
       rawTranscript: encrypt(data.rawTranscript),
@@ -325,7 +325,7 @@ export async function getCriticalPatients(doctorId: string): Promise<
     lastUpdated: string;
   }[]).map((r) => ({
     patientId: r.patientId,
-    patientName: r.patientName,
+    patientName: decrypt(r.patientName),
     consultationId: r.consultationId,
     unresolvedFlags: r.unresolvedFlags,
     lastUpdated: new Date(r.lastUpdated),

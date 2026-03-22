@@ -8,6 +8,7 @@
     "seed": "tsx --env-file=../../apps/web/.env.local src/seed.ts",
     "setup": "tsx --env-file=../../apps/web/.env.local src/setup.ts",
     "check-rag": "tsx --env-file=../../apps/web/.env.local src/check-rag.ts",
+    "demo": "tsx --env-file=../../apps/web/.env.local src/demo-case.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",

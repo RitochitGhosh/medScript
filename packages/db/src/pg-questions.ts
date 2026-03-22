@@ -1,6 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./drizzle/client";
 import { consultationQuestions } from "./drizzle/schema";
+import { encrypt, decrypt } from "./crypto";
 import type { ConsultationQuestion } from "@workspace/types";
 
 function toQuestion(row: typeof consultationQuestions.$inferSelect): ConsultationQuestion {
@@ -8,8 +9,8 @@ function toQuestion(row: typeof consultationQuestions.$inferSelect): Consultatio
     id: row.id,
     consultationId: row.consultationId,
     patientId: row.patientId,
-    question: row.question,
-    answer: row.answer,
+    question: decrypt(row.question),
+    answer: row.answer ? decrypt(row.answer) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -26,8 +27,8 @@ export async function createQuestion(data: {
     .values({
       consultationId: data.consultationId,
       patientId: data.patientId,
-      question: data.question,
-      answer: data.answer ?? null,
+      question: encrypt(data.question),
+      answer: data.answer ? encrypt(data.answer) : null,
     })
     .returning();
   return toQuestion(row!);
@@ -36,7 +37,7 @@ export async function createQuestion(data: {
 export async function answerQuestion(id: string, answer: string): Promise<boolean> {
   const result = await db
     .update(consultationQuestions)
-    .set({ answer, updatedAt: new Date() })
+    .set({ answer: encrypt(answer), updatedAt: new Date() })
     .where(eq(consultationQuestions.id, id));
   return (result.rowCount ?? 0) > 0;
 }
