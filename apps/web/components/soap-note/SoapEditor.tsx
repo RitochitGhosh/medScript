@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Button } from "@workspace/ui/components/button";
 import { Badge } from "@workspace/ui/components/badge";
 import { Label } from "@workspace/ui/components/label";
+import { Mic, MicOff, Loader2 } from "lucide-react";
 import type { SoapNote, HitlFlag, HitlSection } from "@workspace/types";
 
 interface SoapEditorProps {
@@ -16,10 +17,10 @@ interface SoapEditorProps {
 }
 
 const SECTIONS: Array<{ key: keyof SoapNote; label: string; section: HitlSection }> = [
-  { key: "subjective", label: "Subjective", section: "subjective" },
-  { key: "objective", label: "Objective", section: "objective" },
-  { key: "assessment", label: "Assessment", section: "assessment" },
-  { key: "plan", label: "Plan", section: "plan" },
+  { key: "subjective",  label: "Subjective",  section: "subjective" },
+  { key: "objective",   label: "Objective",   section: "objective" },
+  { key: "assessment",  label: "Assessment",  section: "assessment" },
+  { key: "plan",        label: "Plan",        section: "plan" },
 ];
 
 export function SoapEditor({
@@ -29,6 +30,15 @@ export function SoapEditor({
   onFlagResolved,
 }: SoapEditorProps) {
   const [values, setValues] = useState<SoapNote>(soapNote);
+
+  // Voice recording state
+  const [recordingSection, setRecordingSection] = useState<keyof SoapNote | null>(null);
+  const [transcribingSection, setTranscribingSection] = useState<keyof SoapNote | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   function handleChange(key: keyof SoapNote, value: string) {
     const updated = { ...values, [key]: value };
@@ -42,12 +52,72 @@ export function SoapEditor({
       .filter(({ flag }) => flag.section === section);
   }
 
+  async function startVoice(section: keyof SoapNote) {
+    setVoiceError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.start(100);
+      setRecordingSection(section);
+    } catch {
+      setVoiceError("Microphone access denied or unavailable.");
+    }
+  }
+
+  async function stopVoice(section: keyof SoapNote) {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    recorder.stop();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    setRecordingSection(null);
+    setTranscribingSection(section);
+
+    await new Promise<void>((resolve) => { recorder.onstop = () => resolve(); });
+
+    try {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("audio", blob, "recording.webm");
+
+      const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Transcription failed");
+      const data = (await res.json()) as { transcript: string };
+
+      // Append transcript to the section (with a space separator)
+      const current = values[section];
+      const appended = current ? `${current} ${data.transcript}` : data.transcript;
+      handleChange(section, appended);
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : "Transcription failed. Please try again.");
+    } finally {
+      setTranscribingSection(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {voiceError && (
+        <Alert variant="destructive">
+          <AlertDescription className="text-xs">{voiceError}</AlertDescription>
+        </Alert>
+      )}
+
       {SECTIONS.map(({ key, label, section }) => {
         const sectionFlags = getFlagsForSection(section);
         const unresolvedFlags = sectionFlags.filter(({ flag }) => !flag.resolved);
         const hasUnresolved = unresolvedFlags.length > 0;
+        const isRecording = recordingSection === key;
+        const isTranscribing = transcribingSection === key;
 
         return (
           <div key={key} className="space-y-2">
@@ -56,16 +126,39 @@ export function SoapEditor({
                 {label}
               </Label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {values[key].length} chars
-                </span>
+                <span className="text-xs text-muted-foreground">{values[key].length} chars</span>
                 {hasUnresolved && (
                   <Badge variant="secondary" className="text-amber-600 bg-amber-50">
                     {unresolvedFlags.length} flag{unresolvedFlags.length > 1 ? "s" : ""}
                   </Badge>
                 )}
+                {/* Voice dictation button */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isRecording ? "destructive" : "ghost"}
+                  className="h-6 w-6 p-0"
+                  disabled={isTranscribing || (recordingSection !== null && !isRecording)}
+                  title={isRecording ? "Stop dictation" : "Dictate to this section"}
+                  onClick={() => (isRecording ? stopVoice(key) : startVoice(key))}
+                >
+                  {isTranscribing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : isRecording ? (
+                    <MicOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Mic className="h-3.5 w-3.5" />
+                  )}
+                </Button>
               </div>
             </div>
+
+            {isRecording && (
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-50 border border-red-200">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <span className="text-xs text-red-600 font-medium">Recording — click mic to stop & transcribe</span>
+              </div>
+            )}
 
             {/* Flag alerts */}
             {unresolvedFlags.map(({ flag, index }) => (
@@ -87,7 +180,7 @@ export function SoapEditor({
             {/* Resolved flags */}
             {sectionFlags
               .filter(({ flag }) => flag.resolved)
-              .map(({ flag, index }) => (
+              .map(({ index }) => (
                 <Alert key={index} className="border-green-200 bg-green-50">
                   <AlertDescription className="text-green-700 text-sm flex items-center gap-2">
                     <svg
@@ -111,11 +204,7 @@ export function SoapEditor({
               value={values[key]}
               onChange={(e) => handleChange(key, e.target.value)}
               rows={4}
-              className={
-                hasUnresolved
-                  ? "border-amber-300 focus-visible:ring-amber-400"
-                  : ""
-              }
+              className={hasUnresolved ? "border-amber-300 focus-visible:ring-amber-400" : ""}
               placeholder={`Enter ${label.toLowerCase()} section...`}
             />
           </div>

@@ -199,7 +199,14 @@ export async function getConsultationsByDoctor(
     orderBy: (c, { desc }) => [desc(c.createdAt)],
     limit,
   });
-  return rows.map(toConsultation);
+  return rows.flatMap((row) => {
+    try {
+      return [toConsultation(row)];
+    } catch (err) {
+      console.error(`[db] Failed to decrypt consultation ${row.id}:`, err);
+      return [];
+    }
+  });
 }
 
 export async function getConsultationsByPatient(
@@ -211,7 +218,14 @@ export async function getConsultationsByPatient(
     orderBy: (c, { desc }) => [desc(c.createdAt)],
     limit,
   });
-  return rows.map(toConsultation);
+  return rows.flatMap((row) => {
+    try {
+      return [toConsultation(row)];
+    } catch (err) {
+      console.error(`[db] Failed to decrypt consultation ${row.id}:`, err);
+      return [];
+    }
+  });
 }
 
 export async function getConsultationStats(doctorId: string): Promise<{

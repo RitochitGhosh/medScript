@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -72,10 +74,10 @@ export default async function DashboardPage() {
   if (!doctor) redirect("/onboard");
 
   const [stats, consultations, activity, criticalPatients] = await Promise.all([
-    getConsultationStats(doctor.id).catch(() => ({ total: 0, pendingReview: 0, completedToday: 0, approvedTotal: 0 })),
-    getConsultationsByDoctor(doctor.id, 10).catch(() => []),
-    getConsultationActivity(doctor.id, 365).catch(() => []),
-    getCriticalPatients(doctor.id).catch(() => []),
+    getConsultationStats(doctor.id).catch((err) => { console.error("[dashboard] stats error:", err); return { total: 0, pendingReview: 0, completedToday: 0, approvedTotal: 0 }; }),
+    getConsultationsByDoctor(doctor.id, 10).catch((err) => { console.error("[dashboard] consultations error:", err); return []; }),
+    getConsultationActivity(doctor.id, 365).catch((err) => { console.error("[dashboard] activity error:", err); return []; }),
+    getCriticalPatients(doctor.id).catch((err) => { console.error("[dashboard] critical patients error:", err); return []; }),
   ]);
 
   const now = new Date();
@@ -195,7 +197,7 @@ export default async function DashboardPage() {
       <Card className="border shadow-none">
         <CardHeader className="px-5 pb-3">
           <CardTitle className="text-base font-semibold">Consultation Activity</CardTitle>
-          <CardDescription className="text-xs">Daily patient consultations — last 12 months</CardDescription>
+          <CardDescription className="text-xs">Daily consultations — last 7 days</CardDescription>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <ActivityHeatmap activity={activity} />

@@ -9,12 +9,13 @@ import { auth } from "@clerk/nextjs/server";
 import {
   updateHitlFlags,
   updateSoapNote,
+  updateDrugs,
   approveConsultation,
   getConsultationById,
   getDoctorByClerkId,
 } from "@workspace/db";
 import { z } from "zod";
-import type { HitlFlag, SoapNote } from "@workspace/types";
+import type { HitlFlag, SoapNote, PrescribedDrug } from "@workspace/types";
 
 const RequestSchema = z.object({
   hitlFlags: z.array(
@@ -32,6 +33,17 @@ const RequestSchema = z.object({
     assessment: z.string(),
     plan: z.string(),
   }),
+  prescribedDrugs: z.array(
+    z.object({
+      name: z.string(),
+      brandName: z.string(),
+      dosage: z.string(),
+      frequency: z.string(),
+      duration: z.string(),
+      price: z.string().optional(),
+      availability: z.string().optional(),
+    })
+  ).optional(),
 });
 
 export async function POST(
@@ -66,7 +78,7 @@ export async function POST(
       return NextResponse.json({ error: parsed.error.message, code: "VALIDATION_ERROR" }, { status: 400 });
     }
 
-    const { hitlFlags, soapNote } = parsed.data;
+    const { hitlFlags, soapNote, prescribedDrugs } = parsed.data;
 
     const unresolved = hitlFlags.filter((f) => !f.resolved);
     if (unresolved.length > 0) {
@@ -76,10 +88,14 @@ export async function POST(
       );
     }
 
-    await Promise.all([
+    const updates: Promise<unknown>[] = [
       updateSoapNote(id, soapNote as SoapNote),
       updateHitlFlags(id, hitlFlags as HitlFlag[]),
-    ]);
+    ];
+    if (prescribedDrugs) {
+      updates.push(updateDrugs(id, prescribedDrugs as PrescribedDrug[]));
+    }
+    await Promise.all(updates);
 
     await approveConsultation(id);
 

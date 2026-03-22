@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -44,7 +46,7 @@ export default async function HistoryPage() {
   const doctor = await getDoctorByClerkId(userId);
   if (!doctor) redirect("/onboard");
 
-  const consultations = await getConsultationsByDoctor(doctor.id, 50).catch(() => []);
+  const consultations = await getConsultationsByDoctor(doctor.id, 50).catch((err) => { console.error("[history] consultations error:", err); return []; });
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-4xl">

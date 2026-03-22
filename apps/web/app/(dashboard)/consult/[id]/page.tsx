@@ -18,6 +18,7 @@ import { Separator } from "@workspace/ui/components/separator";
 import { SoapEditor } from "@/components/soap-note/SoapEditor";
 import { DiagnosisCard } from "@/components/diagnosis/DiagnosisCard";
 import { DosageCalculator } from "@/components/diagnosis/DosageCalculator";
+import { DrugDosageEditor } from "@/components/diagnosis/DrugDosageEditor";
 import { HospitalCard } from "@/components/referral/HospitalCard";
 import type { Consultation, SoapNote, HitlFlag, Hospital, PrescribedDrug, AuditLogEntry } from "@workspace/types";
 
@@ -87,11 +88,11 @@ export default function ConsultReviewPage() {
   async function handleApproveAndPdf() {
     setApproving(true);
     try {
-      // First save HITL flag resolutions
+      // Save HITL flags, soap note, and updated drug dosages
       await fetch(`/api/consultation/${consultationId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hitlFlags, soapNote }),
+        body: JSON.stringify({ hitlFlags, soapNote, prescribedDrugs: drugs }),
       });
       setApproved(true);
     } catch (err) {
@@ -311,34 +312,7 @@ export default function ConsultReviewPage() {
                           </Alert>
                         )}
 
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b text-xs text-muted-foreground">
-                                <th className="text-left py-1 pr-2">Drug</th>
-                                <th className="text-left py-1 pr-2">Brand</th>
-                                <th className="text-left py-1 pr-2">Dose</th>
-                                <th className="text-left py-1 pr-2">Freq</th>
-                                <th className="text-left py-1 pr-2">Price</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {drugs.map((drug, i) => (
-                                <tr key={i} className="border-b last:border-0">
-                                  <td className="py-2 pr-2 font-medium">{drug.name}</td>
-                                  <td className="py-2 pr-2 text-muted-foreground">
-                                    {drug.brandName}
-                                  </td>
-                                  <td className="py-2 pr-2">{drug.dosage}</td>
-                                  <td className="py-2 pr-2">{drug.frequency}</td>
-                                  <td className="py-2 pr-2 text-xs text-muted-foreground">
-                                    {drug.price ?? "—"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <DrugDosageEditor drugs={drugs} onChange={setDrugs} />
 
                         {/* Dosage calculator */}
                         <DosageCalculator

@@ -8,7 +8,6 @@ import {
 } from "@react-pdf/renderer";
 import type { Consultation } from "@workspace/types";
 
-// Register fonts
 Font.register({
   family: "Helvetica",
   fonts: [
@@ -17,230 +16,160 @@ Font.register({
   ],
 });
 
+const C = {
+  primary: "#1a4fa0",
+  muted: "#6b7280",
+  border: "#d1d5db",
+  bg: "#f9fafb",
+  text: "#111827",
+  light: "#f3f4f6",
+  green: "#166534",
+  greenBg: "#f0fdf4",
+  greenBorder: "#86efac",
+  red: "#991b1b",
+  redBg: "#fef2f2",
+  redBorder: "#fca5a5",
+};
+
 const styles = StyleSheet.create({
-  page: {
-    fontFamily: "Helvetica",
-    fontSize: 10,
-    padding: 40,
-    color: "#1a1a1a",
-  },
-  header: {
+  page: { fontFamily: "Helvetica", fontSize: 10, padding: 36, color: C.text },
+
+  // ── Letterhead ──────────────────────────────────────────────────────────
+  letterhead: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 2,
-    borderBottomColor: "#2563eb",
-  },
-  logo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#2563eb",
-  },
-  clinicInfo: {
-    fontSize: 8,
-    color: "#6b7280",
-    textAlign: "right",
-  },
-  sectionTitle: {
-    fontSize: 9,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    color: "#6b7280",
-    letterSpacing: 1,
-    marginBottom: 4,
-    marginTop: 12,
-  },
-  patientBox: {
-    backgroundColor: "#f3f4f6",
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: 12,
-    flexDirection: "row",
-    gap: 20,
-  },
-  patientField: {
-    flex: 1,
-  },
-  patientLabel: {
-    fontSize: 7,
-    color: "#6b7280",
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  patientValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  soapSection: {
+    borderBottomColor: C.primary,
     marginBottom: 10,
   },
-  soapLabel: {
-    fontSize: 9,
-    fontWeight: "bold",
-    color: "#374151",
-    marginBottom: 3,
-  },
-  soapText: {
-    fontSize: 9,
-    color: "#374151",
-    lineHeight: 1.5,
-  },
-  table: {
-    marginTop: 6,
-  },
-  tableHeader: {
+  doctorName: { fontSize: 15, fontWeight: "bold", color: C.primary },
+  doctorSub: { fontSize: 8, color: C.muted, marginTop: 2, lineHeight: 1.5 },
+  clinicRight: { textAlign: "right" },
+  clinicName: { fontSize: 11, fontWeight: "bold", color: C.text },
+  clinicSub: { fontSize: 8, color: C.muted, textAlign: "right", lineHeight: 1.5 },
+
+  // ── Patient strip ───────────────────────────────────────────────────────
+  patientStrip: {
     flexDirection: "row",
-    backgroundColor: "#f3f4f6",
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderRadius: 2,
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#e5e7eb",
-  },
-  tableCell: {
-    fontSize: 8,
-  },
-  tableHeaderCell: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#6b7280",
-  },
-  col1: { flex: 2 },
-  col2: { flex: 1.5 },
-  col3: { flex: 1 },
-  col4: { flex: 1 },
-  col5: { flex: 1 },
-  col6: { flex: 1.5 },
-  diagnosisBox: {
-    backgroundColor: "#eff6ff",
-    borderLeftWidth: 3,
-    borderLeftColor: "#2563eb",
+    gap: 16,
+    backgroundColor: C.light,
     padding: 8,
+    borderRadius: 3,
+    marginBottom: 10,
+  },
+  patientCell: { flex: 1 },
+  patientLabel: { fontSize: 7, color: C.muted, textTransform: "uppercase", marginBottom: 1 },
+  patientValue: { fontSize: 10, fontWeight: "bold" },
+
+  // ── Diagnosis ───────────────────────────────────────────────────────────
+  diagLine: {
+    flexDirection: "row",
+    gap: 4,
+    marginBottom: 10,
+    alignItems: "flex-start",
+  },
+  diagBold: { fontSize: 9, fontWeight: "bold", color: C.text },
+  diagText: { fontSize: 9, color: C.text, flex: 1, lineHeight: 1.5 },
+
+  // ── Rx block ────────────────────────────────────────────────────────────
+  rxHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     marginBottom: 6,
-    borderRadius: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: C.border,
+    paddingBottom: 4,
   },
-  diagnosisLabel: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#1d4ed8",
+  rxSymbol: { fontSize: 22, fontWeight: "bold", color: C.primary },
+  rxLabel: { fontSize: 8, color: C.muted },
+
+  // ── Drug item ──────────────────────────────────────────────────────────
+  drugItem: {
+    marginBottom: 8,
+    paddingLeft: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: C.primary,
   },
-  diagnosisConfidence: {
-    fontSize: 7,
-    color: "#3b82f6",
-    marginBottom: 3,
+  drugNum: { fontSize: 9, fontWeight: "bold", color: C.primary },
+  drugName: { fontSize: 10, fontWeight: "bold", color: C.text },
+  drugBrand: { fontSize: 8, color: C.muted },
+  drugDetail: { fontSize: 9, color: C.text, marginTop: 2 },
+  drugFreq: { fontSize: 9, color: C.muted, marginTop: 1 },
+
+  // ── Advice ─────────────────────────────────────────────────────────────
+  adviceBox: {
+    marginTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: C.border,
+    paddingTop: 8,
   },
-  diagnosisText: {
-    fontSize: 8,
-    color: "#374151",
-    lineHeight: 1.4,
-  },
+  adviceLabel: { fontSize: 8, fontWeight: "bold", textTransform: "uppercase", color: C.muted, marginBottom: 3 },
+  adviceText: { fontSize: 9, color: C.text, lineHeight: 1.6 },
+
+  // ── Referral ────────────────────────────────────────────────────────────
   referralBox: {
-    backgroundColor: "#f0fdf4",
+    backgroundColor: C.greenBg,
     borderWidth: 1,
-    borderColor: "#86efac",
-    padding: 8,
-    borderRadius: 4,
-    marginTop: 6,
+    borderColor: C.greenBorder,
+    padding: 7,
+    borderRadius: 3,
+    marginTop: 8,
   },
-  referralTitle: {
-    fontSize: 9,
-    fontWeight: "bold",
-    color: "#166534",
-    marginBottom: 4,
-  },
-  referralText: {
-    fontSize: 8,
-    color: "#374151",
-  },
-  signatureLine: {
-    marginTop: 24,
+  referralTitle: { fontSize: 9, fontWeight: "bold", color: C.green, marginBottom: 3 },
+  referralText: { fontSize: 8, color: C.text, lineHeight: 1.5 },
+
+  // ── Signature ────────────────────────────────────────────────────────────
+  signatureRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    marginTop: 20,
   },
-  signatureBox: {
-    borderTopWidth: 1,
-    borderTopColor: "#374151",
-    paddingTop: 4,
-    width: 150,
-    textAlign: "center",
-  },
-  signatureText: {
-    fontSize: 8,
-    color: "#6b7280",
-    textAlign: "center",
-  },
+  signatureBox: { width: 140, alignItems: "center" },
+  signatureLine: { borderTopWidth: 1, borderTopColor: C.text, width: 120, marginBottom: 4 },
+  signatureText: { fontSize: 8, color: C.muted, textAlign: "center" },
+  signatureDoctor: { fontSize: 9, fontWeight: "bold", color: C.text, textAlign: "center", marginTop: 2 },
+
+  // ── Footer ──────────────────────────────────────────────────────────────
   footer: {
     position: "absolute",
     bottom: 20,
-    left: 40,
-    right: 40,
+    left: 36,
+    right: 36,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#e5e7eb",
-    paddingTop: 8,
+    borderTopColor: C.border,
+    paddingTop: 6,
   },
-  footerText: {
-    fontSize: 7,
-    color: "#9ca3af",
-  },
-  // Page 2 - Patient summary
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  summarySubtitle: {
-    fontSize: 10,
-    color: "#6b7280",
-    marginBottom: 16,
-  },
+  footerText: { fontSize: 7, color: "#9ca3af" },
+
+  // ── Page 2 ──────────────────────────────────────────────────────────────
+  soapSection: { marginBottom: 8 },
+  soapLabel: { fontSize: 8, fontWeight: "bold", color: C.muted, marginBottom: 2, textTransform: "uppercase" },
+  soapText: { fontSize: 9, color: C.text, lineHeight: 1.5 },
+
   instructionBox: {
-    backgroundColor: "#f9fafb",
+    backgroundColor: C.bg,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: 8,
+    borderColor: C.border,
+    padding: 9,
+    borderRadius: 3,
+    marginBottom: 7,
   },
-  instructionDrug: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#1d4ed8",
-    marginBottom: 2,
-  },
-  instructionText: {
-    fontSize: 9,
-    color: "#374151",
-    lineHeight: 1.5,
-  },
+  instructionDrug: { fontSize: 11, fontWeight: "bold", color: C.primary, marginBottom: 2 },
+  instructionText: { fontSize: 9, color: C.text, lineHeight: 1.5 },
   disclaimer: {
-    backgroundColor: "#fef2f2",
+    backgroundColor: C.redBg,
     borderWidth: 1,
-    borderColor: "#fca5a5",
+    borderColor: C.redBorder,
     padding: 8,
-    borderRadius: 4,
+    borderRadius: 3,
     marginTop: 12,
   },
-  disclaimerText: {
-    fontSize: 8,
-    color: "#991b1b",
-  },
-  aiLabel: {
-    fontSize: 7,
-    color: "#9ca3af",
-    fontStyle: "italic",
-    marginBottom: 4,
-  },
+  disclaimerText: { fontSize: 8, color: C.red },
 });
 
 interface PrescriptionPDFProps {
@@ -256,195 +185,176 @@ export function PrescriptionPDF({ consultation, doctorName, clinicName }: Prescr
     year: "numeric",
   });
 
+  // Build a compact diagnosis string from assessment
+  const diagnosisText = consultation.soapNote.assessment || "—";
+
+  // Build advice from plan
+  const adviceText = consultation.soapNote.plan || "—";
+
   return (
     <Document
-      title={`MedScript AI Prescription - ${consultation.patientName}`}
-      author="MedScript AI"
+      title={`Prescription — ${consultation.patientName}`}
+      author={doctorName ?? "MedScript AI"}
     >
-      {/* PAGE 1 — Clinical Note */}
+      {/* ═══════════════════════════ PAGE 1 — Prescription ═══════════════════════════ */}
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
+
+        {/* ── Letterhead ── */}
+        <View style={styles.letterhead}>
           <View>
-            <Text style={styles.logo}>MedScript AI</Text>
-            <Text style={{ fontSize: 8, color: "#6b7280", marginTop: 2 }}>
-              Voice-First Clinical Documentation
+            {doctorName ? (
+              <Text style={styles.doctorName}>{doctorName}</Text>
+            ) : (
+              <Text style={styles.doctorName}>MedScript AI</Text>
+            )}
+            <Text style={styles.doctorSub}>
+              {consultation.doctorId ? "Medical Practitioner" : "AI-Assisted Clinical Documentation"}
             </Text>
           </View>
-          <View>
-            {doctorName && (
-              <Text style={{ fontSize: 10, fontWeight: "bold", textAlign: "right", color: "#1a1a1a" }}>
-                {doctorName}
-              </Text>
-            )}
-            {clinicName && (
-              <Text style={styles.clinicInfo}>{clinicName}</Text>
-            )}
-            <Text style={styles.clinicInfo}>Date: {date}</Text>
-            <Text style={styles.clinicInfo}>HITL Verified Prescription</Text>
+          <View style={styles.clinicRight}>
+            {clinicName && <Text style={styles.clinicName}>{clinicName}</Text>}
+            <Text style={styles.clinicSub}>Date: {date}</Text>
           </View>
         </View>
 
-        {/* Patient Info */}
-        <View style={styles.patientBox}>
-          <View style={styles.patientField}>
+        {/* ── Patient Strip ── */}
+        <View style={styles.patientStrip}>
+          <View style={styles.patientCell}>
             <Text style={styles.patientLabel}>Patient Name</Text>
             <Text style={styles.patientValue}>{consultation.patientName}</Text>
           </View>
-          <View style={styles.patientField}>
-            <Text style={styles.patientLabel}>Age</Text>
-            <Text style={styles.patientValue}>{consultation.patientAge} years</Text>
-          </View>
-          <View style={styles.patientField}>
-            <Text style={styles.patientLabel}>Gender</Text>
+          <View style={styles.patientCell}>
+            <Text style={styles.patientLabel}>Age / Sex</Text>
             <Text style={[styles.patientValue, { textTransform: "capitalize" }]}>
-              {consultation.patientGender}
+              {consultation.patientAge}y / {consultation.patientGender.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <View style={styles.patientField}>
-            <Text style={styles.patientLabel}>Status</Text>
-            <Text style={styles.patientValue}>HITL Approved</Text>
+          <View style={styles.patientCell}>
+            <Text style={styles.patientLabel}>Ref. No.</Text>
+            <Text style={styles.patientValue}>{consultation.id.slice(0, 8).toUpperCase()}</Text>
           </View>
         </View>
 
-        {/* SOAP Note */}
-        <Text style={styles.sectionTitle}>Clinical SOAP Note</Text>
+        {/* ── Provisional Diagnosis ── */}
+        <View style={styles.diagLine}>
+          <Text style={styles.diagBold}>Provisional Diagnosis:</Text>
+          <Text style={styles.diagText}>{diagnosisText}</Text>
+        </View>
+
+        {/* ── Rx Block ── */}
+        <View style={styles.rxHeader}>
+          <Text style={styles.rxSymbol}>℞</Text>
+          <Text style={styles.rxLabel}>Prescription</Text>
+        </View>
+
+        {consultation.prescribedDrugs.length === 0 && (
+          <Text style={{ fontSize: 9, color: C.muted }}>No medications prescribed.</Text>
+        )}
+
+        {consultation.prescribedDrugs.map((drug, i) => (
+          <View key={i} style={styles.drugItem}>
+            <Text style={styles.drugNum}>{i + 1}.</Text>
+            <Text style={styles.drugName}>
+              {drug.name}
+              {drug.brandName ? `  (${drug.brandName})` : ""}
+            </Text>
+            <Text style={styles.drugDetail}>
+              {drug.dosage}  —  {drug.frequency}
+            </Text>
+            <Text style={styles.drugFreq}>
+              Duration: {drug.duration}
+              {drug.price ? `   |   ₹${drug.price}` : ""}
+            </Text>
+          </View>
+        ))}
+
+        {/* ── Advice ── */}
+        {adviceText && adviceText !== "—" && (
+          <View style={styles.adviceBox}>
+            <Text style={styles.adviceLabel}>Advice / Follow-up</Text>
+            <Text style={styles.adviceText}>{adviceText}</Text>
+          </View>
+        )}
+
+        {/* ── Referral ── */}
+        {consultation.referralHospital && (
+          <View style={styles.referralBox}>
+            <Text style={styles.referralTitle}>
+              Refer to: {consultation.referralHospital.name}
+            </Text>
+            <Text style={styles.referralText}>
+              {consultation.referralHospital.address}
+            </Text>
+            <Text style={styles.referralText}>
+              Speciality: {consultation.referralHospital.specialty}
+            </Text>
+            {consultation.referralHospital.contact && (
+              <Text style={styles.referralText}>
+                Contact: {consultation.referralHospital.contact}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* ── Signature ── */}
+        <View style={styles.signatureRow}>
+          <View style={styles.signatureBox}>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureDoctor}>{doctorName ?? "Doctor"}</Text>
+            <Text style={styles.signatureText}>Signature &amp; Stamp</Text>
+            <Text style={styles.signatureText}>{date}</Text>
+          </View>
+        </View>
+
+        {/* ── Footer ── */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>MedScript AI — HITL Verified Prescription</Text>
+          <Text style={styles.footerText}>Ref: {consultation.id}</Text>
+        </View>
+      </Page>
+
+      {/* ═══════════════════════════ PAGE 2 — Clinical Notes + Patient Copy ═══════════════════════════ */}
+      <Page size="A4" style={styles.page}>
+
+        {/* Letterhead repeated */}
+        <View style={styles.letterhead}>
+          <View>
+            <Text style={styles.doctorName}>{doctorName ?? "MedScript AI"}</Text>
+          </View>
+          <View style={styles.clinicRight}>
+            {clinicName && <Text style={styles.clinicName}>{clinicName}</Text>}
+            <Text style={styles.clinicSub}>{date}</Text>
+          </View>
+        </View>
+
+        {/* Clinical SOAP notes (for records) */}
+        <Text style={{ fontSize: 11, fontWeight: "bold", marginBottom: 6, color: C.primary }}>
+          Clinical Notes (For Records)
+        </Text>
 
         <View style={styles.soapSection}>
           <Text style={styles.soapLabel}>S — Subjective</Text>
           <Text style={styles.soapText}>{consultation.soapNote.subjective}</Text>
         </View>
-
         <View style={styles.soapSection}>
           <Text style={styles.soapLabel}>O — Objective</Text>
           <Text style={styles.soapText}>{consultation.soapNote.objective}</Text>
         </View>
-
         <View style={styles.soapSection}>
           <Text style={styles.soapLabel}>A — Assessment</Text>
           <Text style={styles.soapText}>{consultation.soapNote.assessment}</Text>
         </View>
-
         <View style={styles.soapSection}>
           <Text style={styles.soapLabel}>P — Plan</Text>
           <Text style={styles.soapText}>{consultation.soapNote.plan}</Text>
         </View>
 
-        {/* Prescribed Drugs */}
+        {/* Patient-friendly medicine summary */}
         {consultation.prescribedDrugs.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Prescribed Medications</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, styles.col1]}>Drug</Text>
-                <Text style={[styles.tableHeaderCell, styles.col2]}>Brand</Text>
-                <Text style={[styles.tableHeaderCell, styles.col3]}>Dosage</Text>
-                <Text style={[styles.tableHeaderCell, styles.col4]}>Frequency</Text>
-                <Text style={[styles.tableHeaderCell, styles.col5]}>Duration</Text>
-                <Text style={[styles.tableHeaderCell, styles.col6]}>Price (INR)</Text>
-              </View>
-              {consultation.prescribedDrugs.map((drug, i) => (
-                <View key={i} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, styles.col1]}>{drug.name}</Text>
-                  <Text style={[styles.tableCell, styles.col2]}>{drug.brandName}</Text>
-                  <Text style={[styles.tableCell, styles.col3]}>{drug.dosage}</Text>
-                  <Text style={[styles.tableCell, styles.col4]}>{drug.frequency}</Text>
-                  <Text style={[styles.tableCell, styles.col5]}>{drug.duration}</Text>
-                  <Text style={[styles.tableCell, styles.col6]}>{drug.price ?? "—"}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* AI Diagnosis (labeled) */}
-        {consultation.diagnosisSuggestions.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Decision Support</Text>
-            <Text style={styles.aiLabel}>
-              AI-generated differential diagnoses — For Doctor Reference Only
+            <Text style={{ fontSize: 11, fontWeight: "bold", marginTop: 14, marginBottom: 6, color: C.primary }}>
+              Medicine Instructions (Patient Copy)
             </Text>
-            {consultation.diagnosisSuggestions.slice(0, 3).map((d, i) => (
-              <View key={i} style={styles.diagnosisBox}>
-                <Text style={styles.diagnosisLabel}>
-                  {i + 1}. {d.diagnosis}
-                </Text>
-                <Text style={styles.diagnosisConfidence}>
-                  Confidence: {d.confidence}%
-                </Text>
-                <Text style={styles.diagnosisText}>{d.reasoning}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Referral */}
-        {consultation.referralHospital && (
-          <>
-            <Text style={styles.sectionTitle}>Referral</Text>
-            <View style={styles.referralBox}>
-              <Text style={styles.referralTitle}>
-                Refer to: {consultation.referralHospital.name}
-              </Text>
-              <Text style={styles.referralText}>
-                Address: {consultation.referralHospital.address}
-              </Text>
-              <Text style={styles.referralText}>
-                Specialty: {consultation.referralHospital.specialty}
-              </Text>
-              {consultation.referralHospital.contact && (
-                <Text style={styles.referralText}>
-                  Contact: {consultation.referralHospital.contact}
-                </Text>
-              )}
-            </View>
-          </>
-        )}
-
-        {/* Doctor Signature */}
-        <View style={styles.signatureLine}>
-          <View style={styles.signatureBox}>
-            <Text style={styles.signatureText}>Doctor Signature</Text>
-            <Text style={styles.signatureText}>Date: {date}</Text>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Generated with MedScript AI | HITL Verified
-          </Text>
-          <Text style={styles.footerText}>Ref: {consultation.id}</Text>
-        </View>
-      </Page>
-
-      {/* PAGE 2 — Patient Summary */}
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.logo}>MedScript AI</Text>
-          </View>
-          <View>
-            {doctorName && (
-              <Text style={{ fontSize: 10, fontWeight: "bold", textAlign: "right", color: "#1a1a1a" }}>
-                {doctorName}
-              </Text>
-            )}
-            {clinicName && <Text style={styles.clinicInfo}>{clinicName}</Text>}
-            <Text style={styles.clinicInfo}>{date}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.summaryTitle}>Patient Prescription Summary</Text>
-        <Text style={styles.summarySubtitle}>
-          Easy-to-read instructions for {consultation.patientName}
-        </Text>
-
-        {/* Drug Instructions */}
-        {consultation.prescribedDrugs.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Your Medicines</Text>
             {consultation.prescribedDrugs.map((drug, i) => (
               <View key={i} style={styles.instructionBox}>
                 <Text style={styles.instructionDrug}>
@@ -453,12 +363,10 @@ export function PrescriptionPDF({ consultation, doctorName, clinicName }: Prescr
                 <Text style={styles.instructionText}>
                   Take {drug.dosage} — {drug.frequency}
                 </Text>
-                <Text style={styles.instructionText}>
-                  Continue for: {drug.duration}
-                </Text>
+                <Text style={styles.instructionText}>Continue for: {drug.duration}</Text>
                 {drug.availability && (
-                  <Text style={{ fontSize: 8, color: "#6b7280", marginTop: 2 }}>
-                    Availability: {drug.availability}
+                  <Text style={{ fontSize: 8, color: C.muted, marginTop: 2 }}>
+                    Available at: {drug.availability}
                   </Text>
                 )}
               </View>
@@ -466,41 +374,35 @@ export function PrescriptionPDF({ consultation, doctorName, clinicName }: Prescr
           </>
         )}
 
-        {/* Referral */}
-        {consultation.referralHospital && (
+        {/* AI Diagnosis Reference */}
+        {consultation.diagnosisSuggestions.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>You Are Being Referred To</Text>
-            <View style={styles.referralBox}>
-              <Text style={styles.referralTitle}>
-                {consultation.referralHospital.name}
-              </Text>
-              <Text style={styles.referralText}>
-                {consultation.referralHospital.address}
-              </Text>
-              {consultation.referralHospital.contact && (
-                <Text style={styles.referralText}>
-                  Call: {consultation.referralHospital.contact}
+            <Text style={{ fontSize: 8, color: C.muted, fontStyle: "italic", marginTop: 10 }}>
+              AI Differential Diagnosis Reference — For Doctor Use Only
+            </Text>
+            {consultation.diagnosisSuggestions.slice(0, 3).map((d, i) => (
+              <View key={i} style={{ marginTop: 4, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.border }}>
+                <Text style={{ fontSize: 9, fontWeight: "bold", color: C.text }}>
+                  {i + 1}. {d.diagnosis}  ({d.confidence}%)
                 </Text>
-              )}
-            </View>
+                <Text style={{ fontSize: 8, color: C.muted, lineHeight: 1.4 }}>{d.reasoning}</Text>
+              </View>
+            ))}
           </>
         )}
 
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>
-            IMPORTANT: This prescription was generated with AI assistance and reviewed
-            and approved by a qualified medical doctor. Do not change your medicine
-            without consulting your doctor. If you experience side effects, contact
-            your doctor immediately.
+            This prescription was generated with AI assistance and reviewed by a qualified doctor.
+            Do not alter your medicine without consulting your doctor.
+            Report any adverse effects immediately.
           </Text>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Generated with MedScript AI | HITL Verified
-          </Text>
+          <Text style={styles.footerText}>MedScript AI — HITL Verified</Text>
           <Text style={styles.footerText}>Page 2 of 2</Text>
         </View>
       </Page>
